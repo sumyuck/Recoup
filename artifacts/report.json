@@ -1,0 +1,795 @@
+{
+  "meta": {
+    "generated_at": "2026-09-03T15:14:03",
+    "seed": 20260903,
+    "chaos": 0.0,
+    "diagnosis_mode": "stub",
+    "model": null,
+    "policy_version": 3,
+    "priors_source": "learned from seed=424242, n=4000",
+    "ledger_chain_valid": true,
+    "reproduce": "python cli.py eval --orders 500 --seed 20260903",
+    "razorpay": {
+      "sent": 0,
+      "shadow": 257,
+      "errors": 0
+    },
+    "voice_calls_rendered": {
+      "rendered": 14,
+      "placed": 0,
+      "errors": 0
+    }
+  },
+  "corpus": {
+    "orders": 500,
+    "customers": 360,
+    "traffic_events": 202031,
+    "total_at_risk_inr": 2944948.46,
+    "seed": 20260903
+  },
+  "recovery_ceiling": {
+    "total_at_risk_inr": 2944948.46,
+    "structurally_unrecoverable_inr": 388255.91,
+    "structurally_unrecoverable_orders": 25,
+    "would_self_heal_inr": 458939.0,
+    "would_self_heal_orders": 115,
+    "addressable_inr": 2097753.55,
+    "addressable_orders": 360,
+    "treated_addressable_inr": 1678202.84,
+    "note": "ceiling = value that was neither structurally dead nor going to recover on its own. This is the only pool the agent can claim."
+  },
+  "arms": [
+    {
+      "arm": "A_BASELINE",
+      "treated": {
+        "n": 400,
+        "recovered": 120,
+        "recovery_rate_pct": 30.0,
+        "value_at_risk_inr": 2250503.23,
+        "value_recovered_inr": 428720.5
+      },
+      "holdout": {
+        "n": 100,
+        "recovered": 19,
+        "recovery_rate_pct": 19.0,
+        "value_at_risk_inr": 694445.23,
+        "value_recovered_inr": 52596.56,
+        "note": "never contacted; measures what recovers with the agent off"
+      },
+      "incremental": {
+        "lift_pp": 11.0,
+        "lift_95ci_pp": [
+          1.75,
+          19.5
+        ],
+        "statistically_significant": true,
+        "orders": 44.0,
+        "inr": 258269.72,
+        "inr_95ci": [
+          -12084.89,
+          514419.3
+        ],
+        "pct_of_recovery_ceiling": 15.39
+      },
+      "economics": {
+        "spend_inr": 0.0,
+        "llm_cost_inr": 0.0,
+        "total_cost_inr": 0.0,
+        "net_value_inr": 258269.72,
+        "cost_per_100_recovered_inr": 0.0,
+        "actions_taken": 504,
+        "contacts_made": 0
+      },
+      "false_positive_cost": {
+        "self_heal_recoveries_not_claimed": 78,
+        "wasted_contacts_to_self_healers": 0,
+        "opt_outs_caused": 0,
+        "note": "customers contacted who would have paid anyway, and the permanent opt-outs that resulted. This is the cost a raw recovery rate hides."
+      },
+      "human_review_queue": 0
+    },
+    {
+      "arm": "B_RULES",
+      "treated": {
+        "n": 400,
+        "recovered": 197,
+        "recovery_rate_pct": 49.25,
+        "value_at_risk_inr": 2250503.23,
+        "value_recovered_inr": 1301248.49
+      },
+      "holdout": {
+        "n": 100,
+        "recovered": 19,
+        "recovery_rate_pct": 19.0,
+        "value_at_risk_inr": 694445.23,
+        "value_recovered_inr": 52596.56,
+        "note": "never contacted; measures what recovers with the agent off"
+      },
+      "incremental": {
+        "lift_pp": 30.25,
+        "lift_95ci_pp": [
+          20.75,
+          39.25
+        ],
+        "statistically_significant": true,
+        "orders": 121.0,
+        "inr": 1130797.71,
+        "inr_95ci": [
+          760835.23,
+          1425966.84
+        ],
+        "pct_of_recovery_ceiling": 67.38
+      },
+      "economics": {
+        "spend_inr": 3220.45,
+        "llm_cost_inr": 0.0,
+        "total_cost_inr": 3220.45,
+        "net_value_inr": 1127577.26,
+        "cost_per_100_recovered_inr": 0.2848,
+        "actions_taken": 522,
+        "contacts_made": 384
+      },
+      "false_positive_cost": {
+        "self_heal_recoveries_not_claimed": 79,
+        "wasted_contacts_to_self_healers": 3,
+        "opt_outs_caused": 18,
+        "note": "customers contacted who would have paid anyway, and the permanent opt-outs that resulted. This is the cost a raw recovery rate hides."
+      },
+      "human_review_queue": 15
+    },
+    {
+      "arm": "C_AGENT",
+      "treated": {
+        "n": 400,
+        "recovered": 197,
+        "recovery_rate_pct": 49.25,
+        "value_at_risk_inr": 2250503.23,
+        "value_recovered_inr": 1301248.49
+      },
+      "holdout": {
+        "n": 100,
+        "recovered": 19,
+        "recovery_rate_pct": 19.0,
+        "value_at_risk_inr": 694445.23,
+        "value_recovered_inr": 52596.56,
+        "note": "never contacted; measures what recovers with the agent off"
+      },
+      "incremental": {
+        "lift_pp": 30.25,
+        "lift_95ci_pp": [
+          20.75,
+          39.25
+        ],
+        "statistically_significant": true,
+        "orders": 121.0,
+        "inr": 1130797.71,
+        "inr_95ci": [
+          760835.23,
+          1425966.84
+        ],
+        "pct_of_recovery_ceiling": 67.38
+      },
+      "economics": {
+        "spend_inr": 3220.45,
+        "llm_cost_inr": 0.0,
+        "total_cost_inr": 3220.45,
+        "net_value_inr": 1127577.26,
+        "cost_per_100_recovered_inr": 0.2848,
+        "actions_taken": 522,
+        "contacts_made": 384
+      },
+      "false_positive_cost": {
+        "self_heal_recoveries_not_claimed": 79,
+        "wasted_contacts_to_self_healers": 3,
+        "opt_outs_caused": 18,
+        "note": "customers contacted who would have paid anyway, and the permanent opt-outs that resulted. This is the cost a raw recovery rate hides."
+      },
+      "human_review_queue": 15
+    }
+  ],
+  "detection": {
+    "injected_outages": 2,
+    "signals_raised": 2,
+    "true_positives": 2,
+    "false_positives": 0,
+    "missed_outages": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "coverage": {
+      "testable_buckets": 3565,
+      "skipped_low_volume": 1456,
+      "skipped_no_baseline": 97,
+      "cross_dimension_shadows": 3,
+      "hypotheses_tested": 3565,
+      "alpha_naive": 0.01,
+      "alpha_bonferroni": 2.8050490883590463e-06,
+      "candidates_before_correction": 14,
+      "signals_after_correction": 2
+    }
+  },
+  "diagnosis": {
+    "overall_accuracy": 0.9108,
+    "n": 325,
+    "by_tier": {
+      "deterministic": {
+        "n": 199,
+        "accuracy": 1.0
+      },
+      "llm": {
+        "n": 126,
+        "accuracy": 0.7698
+      }
+    },
+    "by_class": {
+      "AUTH_3DS_TIMEOUT": {
+        "support": 45,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "CARD_EXPIRED": {
+        "support": 22,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "CHECKOUT_ABANDONED": {
+        "support": 28,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "DO_NOT_HONOR": {
+        "support": 20,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "GATEWAY_TIMEOUT": {
+        "support": 15,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "INSUFFICIENT_FUNDS": {
+        "support": 61,
+        "precision": 1.0,
+        "recall": 0.525
+      },
+      "INVOICE_OVERDUE": {
+        "support": 21,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "ISSUER_DOWN": {
+        "support": 19,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "MANDATE_INSUFFICIENT": {
+        "support": 25,
+        "precision": 0.463,
+        "recall": 1.0
+      },
+      "MANDATE_REVOKED": {
+        "support": 20,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "RISK_BLOCKED": {
+        "support": 15,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "UPI_COLLECT_EXPIRED": {
+        "support": 34,
+        "precision": 1.0,
+        "recall": 1.0
+      }
+    },
+    "calibration": {
+      "70-80%": {
+        "n": 126,
+        "actual_accuracy": 0.77
+      },
+      "90-100%": {
+        "n": 199,
+        "actual_accuracy": 1.0
+      }
+    },
+    "tier_split": {
+      "deterministic": 199,
+      "llm": 126,
+      "fallback": 0,
+      "llm_cost_inr": 0.0,
+      "in_tokens": 0,
+      "out_tokens": 0,
+      "schema_violations": 0,
+      "api_errors": 0
+    }
+  },
+  "executor_invariants": {
+    "calls": 522,
+    "transient_errors": 0,
+    "ambiguous_timeouts": 0,
+    "retries": 0,
+    "breaker_trips": 0,
+    "breaker_shed": 0,
+    "reconciliations": 0,
+    "dead_lettered": 0,
+    "duplicate_charges_prevented": 0,
+    "double_charges": 0
+  },
+  "exceptions": {
+    "unrecovered_by_reason": {
+      "NO_ELIGIBLE_ACTION": {
+        "orders": 149,
+        "value_inr": 526680.87,
+        "largest": [
+          {
+            "order_id": "order_e9f44049cfac4d",
+            "amount_inr": 60900.0,
+            "diagnosed_class": "INVOICE_OVERDUE",
+            "true_class": "INVOICE_OVERDUE",
+            "actions_tried": [
+              "HUMAN_COLLECTIONS_CALL"
+            ],
+            "blocked_by": [
+              "contact.opt_out_is_permanent",
+              "contact.opt_out_is_permanent",
+              "contact.opt_out_is_permanent",
+              "orchestrator.already_attempted"
+            ]
+          },
+          {
+            "order_id": "order_a58d659e0b7024",
+            "amount_inr": 42020.0,
+            "diagnosed_class": "INVOICE_OVERDUE",
+            "true_class": "INVOICE_OVERDUE",
+            "actions_tried": [
+              "HUMAN_COLLECTIONS_CALL",
+              "NUDGE_EMAIL"
+            ],
+            "blocked_by": [
+              "orchestrator.already_attempted",
+              "contact.consent_required_channels",
+              "voice.requires_prior_failed_contacts",
+              "orchestrator.already_attempted"
+            ]
+          },
+          {
+            "order_id": "order_f9fb770debd45a",
+            "amount_inr": 34340.0,
+            "diagnosed_class": "INVOICE_OVERDUE",
+            "true_class": "INVOICE_OVERDUE",
+            "actions_tried": [
+              "HUMAN_COLLECTIONS_CALL",
+              "NUDGE_EMAIL"
+            ],
+            "blocked_by": [
+              "orchestrator.already_attempted",
+              "contact.consent_required_channels",
+              "contact.honour_dnd",
+              "orchestrator.already_attempted"
+            ]
+          },
+          {
+            "order_id": "order_4e08725c195a98",
+            "amount_inr": 19600.0,
+            "diagnosed_class": "INVOICE_OVERDUE",
+            "true_class": "INVOICE_OVERDUE",
+            "actions_tried": [
+              "NUDGE_WHATSAPP",
+              "HUMAN_COLLECTIONS_CALL",
+              "NUDGE_EMAIL",
+              "VOICE_CALL"
+            ],
+            "blocked_by": [
+              "orchestrator.already_attempted",
+              "orchestrator.already_attempted",
+              "orchestrator.already_attempted",
+              "orchestrator.already_attempted"
+            ]
+          },
+          {
+            "order_id": "order_f39df3892b5680",
+            "amount_inr": 11380.0,
+            "diagnosed_class": "AUTH_3DS_TIMEOUT",
+            "true_class": "AUTH_3DS_TIMEOUT",
+            "actions_tried": [
+              "NUDGE_SMS",
+              "METHOD_SWITCH_LINK",
+              "NUDGE_WHATSAPP"
+            ],
+            "blocked_by": [
+              "orchestrator.already_attempted",
+              "orchestrator.already_attempted",
+              "orchestrator.already_attempted",
+              "contact.max_contacts_per_customer_per_24h"
+            ]
+          }
+        ]
+      },
+      "EXHAUSTED_LADDER": {
+        "orders": 21,
+        "value_inr": 210257.33,
+        "largest": [
+          {
+            "order_id": "order_9526e5792f0107",
+            "amount_inr": 63180.0,
+            "diagnosed_class": "INVOICE_OVERDUE",
+            "true_class": "INVOICE_OVERDUE",
+            "actions_tried": [
+              "NUDGE_WHATSAPP",
+              "HUMAN_COLLECTIONS_CALL",
+              "VOICE_CALL",
+              "NUDGE_EMAIL"
+            ],
+            "blocked_by": []
+          },
+          {
+            "order_id": "order_944e75e6af52ac",
+            "amount_inr": 45800.0,
+            "diagnosed_class": "INVOICE_OVERDUE",
+            "true_class": "INVOICE_OVERDUE",
+            "actions_tried": [
+              "NUDGE_WHATSAPP",
+              "HUMAN_COLLECTIONS_CALL",
+              "VOICE_CALL",
+              "NUDGE_EMAIL"
+            ],
+            "blocked_by": []
+          },
+          {
+            "order_id": "order_6f6eb0c199de62",
+            "amount_inr": 38720.0,
+            "diagnosed_class": "INVOICE_OVERDUE",
+            "true_class": "INVOICE_OVERDUE",
+            "actions_tried": [
+              "HUMAN_COLLECTIONS_CALL",
+              "NUDGE_WHATSAPP",
+              "VOICE_CALL"
+            ],
+            "blocked_by": []
+          },
+          {
+            "order_id": "order_e229989ffe2d37",
+            "amount_inr": 20530.0,
+            "diagnosed_class": "INVOICE_OVERDUE",
+            "true_class": "INVOICE_OVERDUE",
+            "actions_tried": [
+              "HUMAN_COLLECTIONS_CALL",
+              "VOICE_CALL",
+              "NUDGE_EMAIL"
+            ],
+            "blocked_by": []
+          },
+          {
+            "order_id": "order_256836b526463c",
+            "amount_inr": 8200.0,
+            "diagnosed_class": "AUTH_3DS_TIMEOUT",
+            "true_class": "AUTH_3DS_TIMEOUT",
+            "actions_tried": [
+              "NUDGE_SMS",
+              "METHOD_SWITCH_LINK",
+              "NUDGE_WHATSAPP"
+            ],
+            "blocked_by": []
+          }
+        ]
+      },
+      "HUMAN_ESCALATED": {
+        "orders": 15,
+        "value_inr": 144532.16,
+        "largest": [
+          {
+            "order_id": "order_240b6a75f09f48",
+            "amount_inr": 116470.0,
+            "diagnosed_class": "INVOICE_OVERDUE",
+            "true_class": "INVOICE_OVERDUE",
+            "actions_tried": [
+              "HUMAN_COLLECTIONS_CALL"
+            ],
+            "blocked_by": []
+          },
+          {
+            "order_id": "order_7dbdb6a75ac8b9",
+            "amount_inr": 7610.0,
+            "diagnosed_class": "UPI_COLLECT_EXPIRED",
+            "true_class": "UPI_COLLECT_EXPIRED",
+            "actions_tried": [],
+            "blocked_by": []
+          },
+          {
+            "order_id": "order_3cc9010c43c486",
+            "amount_inr": 3850.0,
+            "diagnosed_class": "UPI_COLLECT_EXPIRED",
+            "true_class": "UPI_COLLECT_EXPIRED",
+            "actions_tried": [],
+            "blocked_by": []
+          },
+          {
+            "order_id": "order_35aec7eb6f12f8",
+            "amount_inr": 3380.0,
+            "diagnosed_class": "CARD_EXPIRED",
+            "true_class": "CARD_EXPIRED",
+            "actions_tried": [],
+            "blocked_by": []
+          },
+          {
+            "order_id": "order_704d85818a89bb",
+            "amount_inr": 3020.0,
+            "diagnosed_class": "UPI_COLLECT_EXPIRED",
+            "true_class": "UPI_COLLECT_EXPIRED",
+            "actions_tried": [],
+            "blocked_by": []
+          }
+        ]
+      },
+      "OPT_OUT": {
+        "orders": 18,
+        "value_inr": 67784.38,
+        "largest": [
+          {
+            "order_id": "order_4906fface6cfe4",
+            "amount_inr": 37090.0,
+            "diagnosed_class": "INVOICE_OVERDUE",
+            "true_class": "INVOICE_OVERDUE",
+            "actions_tried": [
+              "NUDGE_WHATSAPP",
+              "HUMAN_COLLECTIONS_CALL",
+              "VOICE_CALL"
+            ],
+            "blocked_by": []
+          },
+          {
+            "order_id": "order_1d3478032d509b",
+            "amount_inr": 11540.0,
+            "diagnosed_class": "INSUFFICIENT_FUNDS",
+            "true_class": "INSUFFICIENT_FUNDS",
+            "actions_tried": [
+              "RETRY_SCHEDULED",
+              "METHOD_SWITCH_LINK"
+            ],
+            "blocked_by": []
+          },
+          {
+            "order_id": "order_2945c82a5c5aeb",
+            "amount_inr": 3330.0,
+            "diagnosed_class": "MANDATE_INSUFFICIENT",
+            "true_class": "INSUFFICIENT_FUNDS",
+            "actions_tried": [
+              "MANDATE_REPRESENT",
+              "NUDGE_WHATSAPP",
+              "NUDGE_SMS"
+            ],
+            "blocked_by": []
+          },
+          {
+            "order_id": "order_9bd9eadf92f1c8",
+            "amount_inr": 2980.0,
+            "diagnosed_class": "MANDATE_REVOKED",
+            "true_class": "MANDATE_REVOKED",
+            "actions_tried": [
+              "MANDATE_REAUTH_LINK",
+              "NUDGE_WHATSAPP"
+            ],
+            "blocked_by": []
+          },
+          {
+            "order_id": "order_87cf70172e3492",
+            "amount_inr": 2590.0,
+            "diagnosed_class": "AUTH_3DS_TIMEOUT",
+            "true_class": "AUTH_3DS_TIMEOUT",
+            "actions_tried": [
+              "NUDGE_SMS",
+              "METHOD_SWITCH_LINK",
+              "NUDGE_WHATSAPP"
+            ],
+            "blocked_by": []
+          }
+        ]
+      }
+    },
+    "human_review_queue": [
+      {
+        "order_id": "order_240b6a75f09f48",
+        "customer_id": "cust_00157",
+        "amount_inr": 116470.0,
+        "diagnosed_class": "INVOICE_OVERDUE",
+        "reason": "approval.always_escalate_flags",
+        "detail": "customer carries ['CHARGEBACK_OPEN']; autonomous action not permitted",
+        "prepared_candidates": [
+          "NUDGE_EMAIL",
+          "NUDGE_WHATSAPP",
+          "VOICE_CALL",
+          "HUMAN_COLLECTIONS_CALL"
+        ]
+      },
+      {
+        "order_id": "order_7dbdb6a75ac8b9",
+        "customer_id": "cust_00021",
+        "amount_inr": 7610.0,
+        "diagnosed_class": "UPI_COLLECT_EXPIRED",
+        "reason": "approval.always_escalate_flags",
+        "detail": "customer carries ['IN_DISPUTE']; autonomous action not permitted",
+        "prepared_candidates": [
+          "RETRY_NOW",
+          "NUDGE_WHATSAPP",
+          "NUDGE_SMS"
+        ]
+      },
+      {
+        "order_id": "order_3cc9010c43c486",
+        "customer_id": "cust_00072",
+        "amount_inr": 3850.0,
+        "diagnosed_class": "UPI_COLLECT_EXPIRED",
+        "reason": "approval.always_escalate_flags",
+        "detail": "customer carries ['IN_DISPUTE']; autonomous action not permitted",
+        "prepared_candidates": [
+          "RETRY_NOW",
+          "NUDGE_WHATSAPP",
+          "NUDGE_SMS"
+        ]
+      },
+      {
+        "order_id": "order_35aec7eb6f12f8",
+        "customer_id": "cust_00228",
+        "amount_inr": 3380.0,
+        "diagnosed_class": "CARD_EXPIRED",
+        "reason": "approval.always_escalate_flags",
+        "detail": "customer carries ['IN_DISPUTE']; autonomous action not permitted",
+        "prepared_candidates": [
+          "UPDATE_INSTRUMENT_LINK",
+          "NUDGE_WHATSAPP",
+          "NUDGE_SMS",
+          "VOICE_CALL"
+        ]
+      },
+      {
+        "order_id": "order_704d85818a89bb",
+        "customer_id": "cust_00157",
+        "amount_inr": 3020.0,
+        "diagnosed_class": "UPI_COLLECT_EXPIRED",
+        "reason": "approval.always_escalate_flags",
+        "detail": "customer carries ['CHARGEBACK_OPEN']; autonomous action not permitted",
+        "prepared_candidates": [
+          "RETRY_NOW",
+          "NUDGE_WHATSAPP",
+          "NUDGE_SMS"
+        ]
+      },
+      {
+        "order_id": "order_b6cd78b60dab82",
+        "customer_id": "cust_00021",
+        "amount_inr": 2970.0,
+        "diagnosed_class": "DO_NOT_HONOR",
+        "reason": "approval.always_escalate_flags",
+        "detail": "customer carries ['IN_DISPUTE']; autonomous action not permitted",
+        "prepared_candidates": [
+          "METHOD_SWITCH_LINK",
+          "NUDGE_WHATSAPP",
+          "VOICE_CALL"
+        ]
+      },
+      {
+        "order_id": "order_5ac2d1ae629a52",
+        "customer_id": "cust_00157",
+        "amount_inr": 1720.0,
+        "diagnosed_class": "AUTH_3DS_TIMEOUT",
+        "reason": "approval.always_escalate_flags",
+        "detail": "customer carries ['CHARGEBACK_OPEN']; autonomous action not permitted",
+        "prepared_candidates": [
+          "METHOD_SWITCH_LINK",
+          "NUDGE_WHATSAPP",
+          "NUDGE_SMS",
+          "NUDGE_EMAIL"
+        ]
+      },
+      {
+        "order_id": "order_b43697b680efa6",
+        "customer_id": "cust_00072",
+        "amount_inr": 1240.0,
+        "diagnosed_class": "DO_NOT_HONOR",
+        "reason": "approval.always_escalate_flags",
+        "detail": "customer carries ['IN_DISPUTE']; autonomous action not permitted",
+        "prepared_candidates": [
+          "METHOD_SWITCH_LINK",
+          "NUDGE_WHATSAPP",
+          "VOICE_CALL"
+        ]
+      },
+      {
+        "order_id": "order_f6cf49b5f46ea2",
+        "customer_id": "cust_00289",
+        "amount_inr": 1240.0,
+        "diagnosed_class": "ISSUER_DOWN",
+        "reason": "approval.always_escalate_flags",
+        "detail": "customer carries ['LEGAL_HOLD']; autonomous action not permitted",
+        "prepared_candidates": [
+          "RETRY_SCHEDULED",
+          "METHOD_SWITCH_LINK",
+          "NUDGE_WHATSAPP",
+          "NUDGE_SMS"
+        ]
+      },
+      {
+        "order_id": "order_85d2d255a87fae",
+        "customer_id": "cust_00072",
+        "amount_inr": 880.08,
+        "diagnosed_class": "CHECKOUT_ABANDONED",
+        "reason": "approval.always_escalate_flags",
+        "detail": "customer carries ['IN_DISPUTE']; autonomous action not permitted",
+        "prepared_candidates": [
+          "NUDGE_WHATSAPP",
+          "METHOD_SWITCH_LINK",
+          "NUDGE_SMS",
+          "NUDGE_EMAIL"
+        ]
+      },
+      {
+        "order_id": "order_c4df0ba34319c7",
+        "customer_id": "cust_00022",
+        "amount_inr": 748.64,
+        "diagnosed_class": "MANDATE_INSUFFICIENT",
+        "reason": "approval.always_escalate_flags",
+        "detail": "customer carries ['CHARGEBACK_OPEN']; autonomous action not permitted",
+        "prepared_candidates": [
+          "MANDATE_REPRESENT",
+          "NUDGE_WHATSAPP",
+          "NUDGE_SMS"
+        ]
+      },
+      {
+        "order_id": "order_bb37ec5cda6798",
+        "customer_id": "cust_00219",
+        "amount_inr": 454.84,
+        "diagnosed_class": "AUTH_3DS_TIMEOUT",
+        "reason": "approval.always_escalate_flags",
+        "detail": "customer carries ['LEGAL_HOLD']; autonomous action not permitted",
+        "prepared_candidates": [
+          "METHOD_SWITCH_LINK",
+          "NUDGE_WHATSAPP",
+          "NUDGE_SMS",
+          "NUDGE_EMAIL"
+        ]
+      },
+      {
+        "order_id": "order_33601f82311e82",
+        "customer_id": "cust_00115",
+        "amount_inr": 434.33,
+        "diagnosed_class": "INSUFFICIENT_FUNDS",
+        "reason": "approval.always_escalate_flags",
+        "detail": "customer carries ['IN_DISPUTE']; autonomous action not permitted",
+        "prepared_candidates": [
+          "RETRY_SCHEDULED",
+          "NUDGE_WHATSAPP",
+          "METHOD_SWITCH_LINK",
+          "NUDGE_SMS",
+          "VOICE_CALL"
+        ]
+      },
+      {
+        "order_id": "order_aafaf90d09c065",
+        "customer_id": "cust_00336",
+        "amount_inr": 299.2,
+        "diagnosed_class": "GATEWAY_TIMEOUT",
+        "reason": "approval.always_escalate_flags",
+        "detail": "customer carries ['CHARGEBACK_OPEN']; autonomous action not permitted",
+        "prepared_candidates": [
+          "RETRY_NOW",
+          "RETRY_SCHEDULED",
+          "NUDGE_SMS"
+        ]
+      },
+      {
+        "order_id": "order_762867f23c7f44",
+        "customer_id": "cust_00215",
+        "amount_inr": 215.07,
+        "diagnosed_class": "GATEWAY_TIMEOUT",
+        "reason": "approval.always_escalate_flags",
+        "detail": "customer carries ['LEGAL_HOLD']; autonomous action not permitted",
+        "prepared_candidates": [
+          "RETRY_NOW",
+          "RETRY_SCHEDULED",
+          "NUDGE_SMS"
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,18 @@
+Sweeping injected outage severity (how much of the cell the outage kills)
+and duration, 5 seeds each. Recall = fraction of injected outages found.
+
+ severity  dur(h)   TP   FP  miss  recall  precision
+     0.90       6   10    0     0    1.00        1.0
+     0.90       3   10    0     0    1.00        1.0
+     0.70       6   10    0     0    1.00        1.0
+     0.70       3   10    0     0    1.00        1.0
+     0.50       6   10    0     0    1.00        1.0
+     0.50       3   10    1     0    1.00       0.91
+     0.35       6   10    0     0    1.00        1.0
+     0.35       3    8    0     2    0.80        1.0
+     0.25       6    8    0     2    0.80        1.0
+     0.25       3    6    0     4    0.60        1.0
+     0.15       6    3    0     7    0.30        1.0
+     0.15       3    1    0     9    0.10        1.0
+
+

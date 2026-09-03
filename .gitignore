@@ -1,0 +1,8 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+artifacts/*.db
+artifacts/*.jsonl
+artifacts/runs/
+.DS_Store

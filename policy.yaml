@@ -1,0 +1,102 @@
+# ============================================================================
+# Recoup recovery policy  —  version 3
+#
+# This file is the ENTIRE authorization surface for money and contact actions.
+# The LLM never decides what happens; it only proposes. Every proposal is
+# evaluated against these rules and each rule's verdict is written to the
+# audit ledger. If a rule denies an action, the action does not happen --
+# there is no override path in code.
+#
+# Changing this file changes agent behaviour. It is versioned, and the version
+# is stamped into every ledger entry so any historical decision can be
+# replayed against the exact policy that produced it.
+# ============================================================================
+policy_version: 3
+
+# --- Global spend + blast-radius caps -------------------------------------
+budget:
+  # Hard ceiling on money the agent may SPEND (comms + telephony + incentives)
+  # across a whole batch run. Executor halts when breached.
+  max_batch_spend_inr: 5000.00
+  # An action is refused if its cost exceeds this share of the amount at risk.
+  max_action_cost_as_pct_of_amount: 8.0
+  # Incentives (discounts/waivers) are capped per-order and per-batch.
+  max_incentive_pct_of_order: 5.0
+  max_batch_incentive_inr: 2000.00
+
+# --- Retry discipline ------------------------------------------------------
+retries:
+  max_attempts_per_order: 3
+  # Backoff in minutes between retries; index = attempt number.
+  backoff_minutes: [15, 360, 2880]
+  jitter_pct: 20
+  # Failure classes we will NEVER retry-charge. Retrying these is either
+  # futile (bank has hard-declined) or actively harmful (risk/fraud block).
+  never_retry_classes:
+    - RISK_BLOCKED
+    - DO_NOT_HONOR
+    - CARD_EXPIRED        # the card is dead; a retry cannot succeed
+    - MANDATE_REVOKED     # mandate is gone; needs fresh authorization
+  # Insufficient funds is retryable but payday-aware, not brute-forced.
+  payday_aware_classes:
+    - INSUFFICIENT_FUNDS
+
+# --- Contact frequency + consent ------------------------------------------
+contact:
+  max_contacts_per_customer_per_24h: 1
+  max_contacts_per_customer_per_7d: 3
+  min_hours_between_contacts: 18
+  # Quiet hours in IST. No outbound comms or calls inside this window.
+  quiet_hours_ist: { start: "21:00", end: "09:00" }
+  # Channels requiring explicit prior consent on the customer record.
+  consent_required_channels: [WHATSAPP, VOICE_CALL]
+  # DND registry is honoured for VOICE_CALL and SMS regardless of consent.
+  honour_dnd: [VOICE_CALL, NUDGE_SMS]
+  # An opt-out is permanent and applies across every channel and future batch.
+  opt_out_is_permanent: true
+
+# --- Voice tier (most expensive + most intrusive channel) -----------------
+voice:
+  # Only the high-value tail justifies a call.
+  min_amount_inr: 5000.00
+  # Never the first touch. Customer must have ignored cheaper channels.
+  requires_prior_failed_contacts: 2
+  max_calls_per_customer_per_7d: 1
+  # Mandatory spoken AI disclosure at call open. Non-negotiable.
+  ai_disclosure_required: true
+  max_call_duration_seconds: 180
+
+# --- Human-in-the-loop -----------------------------------------------------
+approval:
+  # Above this amount at risk, the agent prepares the action but parks it for
+  # a human to approve. It does not execute autonomously.
+  #
+  # Set at 75k deliberately. At 25k the threshold sat *below* the bulk of the
+  # B2B invoice range, so nearly every receivable was parked for a human and
+  # the voice-recovery tier -- the highest-yield channel for overdue B2B --
+  # could never run. 75k keeps a person in the loop for the genuine tail while
+  # letting the agent work the band where it is actually useful.
+  human_approval_above_inr: 75000.00
+  # Any action against a customer flagged in dispute goes to a human, always.
+  always_escalate_flags: [IN_DISPUTE, CHARGEBACK_OPEN, LEGAL_HOLD]
+
+# --- Stopping rules (when the agent must give up) -------------------------
+stopping:
+  stop_on_success: true
+  stop_on_opt_out: true
+  # A promise-to-pay freezes the entire sequence until the promised date.
+  promise_to_pay_pauses_sequence: true
+  promise_to_pay_grace_days: 3
+  max_actions_per_order: 5
+  max_sequence_age_days: 21
+  # Economic stop: if the expected value of the next action is below its cost,
+  # stop. This is what prevents the agent from harassing low-value orders.
+  min_expected_value_ratio: 1.5   # EV(action) must exceed 1.5x cost(action)
+
+# --- Measurement -----------------------------------------------------------
+experiment:
+  # Randomized holdout receives NO intervention, so recovery can be reported
+  # as incremental lift rather than raw rate. Assignment is deterministic on
+  # a hash of order_id + seed, so it is stable across replays.
+  holdout_pct: 20
+  seed: 20260903

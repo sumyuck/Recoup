@@ -1,0 +1,69 @@
+{
+  "calibration_batch": "seed=424242, n=4000",
+  "method": "random-action exploration; Laplace-smoothed success rate grouped by (diagnosed class, intervention)",
+  "evaluation_seed_is_different": true,
+  "priors": {
+    "AUTH_3DS_TIMEOUT": {
+      "METHOD_SWITCH_LINK": 0.2521,
+      "NUDGE_EMAIL": 0.1639,
+      "NUDGE_SMS": 0.2748,
+      "NUDGE_WHATSAPP": 0.2131
+    },
+    "CARD_EXPIRED": {
+      "NUDGE_SMS": 0.1852,
+      "NUDGE_WHATSAPP": 0.1343,
+      "UPDATE_INSTRUMENT_LINK": 0.3051,
+      "VOICE_CALL": 0.2727
+    },
+    "CHECKOUT_ABANDONED": {
+      "METHOD_SWITCH_LINK": 0.25,
+      "NUDGE_EMAIL": 0.092,
+      "NUDGE_SMS": 0.1798,
+      "NUDGE_WHATSAPP": 0.2111
+    },
+    "DO_NOT_HONOR": {
+      "METHOD_SWITCH_LINK": 0.1339,
+      "NUDGE_WHATSAPP": 0.08,
+      "VOICE_CALL": 0.1327
+    },
+    "GATEWAY_TIMEOUT": {
+      "NUDGE_SMS": 0.2262,
+      "RETRY_NOW": 0.3375,
+      "RETRY_SCHEDULED": 0.3797
+    },
+    "INSUFFICIENT_FUNDS": {
+      "METHOD_SWITCH_LINK": 0.2338,
+      "NUDGE_SMS": 0.1961,
+      "NUDGE_WHATSAPP": 0.1754,
+      "RETRY_SCHEDULED": 0.3521,
+      "VOICE_CALL": 0.3279
+    },
+    "INVOICE_OVERDUE": {
+      "HUMAN_COLLECTIONS_CALL": 0.2262,
+      "NUDGE_EMAIL": 0.1458,
+      "NUDGE_WHATSAPP": 0.3117,
+      "VOICE_CALL": 0.2621
+    },
+    "ISSUER_DOWN": {
+      "METHOD_SWITCH_LINK": 0.2556,
+      "NUDGE_SMS": 0.1558,
+      "NUDGE_WHATSAPP": 0.2619,
+      "RETRY_SCHEDULED": 0.4605
+    },
+    "MANDATE_INSUFFICIENT": {
+      "MANDATE_REPRESENT": 0.08,
+      "NUDGE_SMS": 0.1173,
+      "NUDGE_WHATSAPP": 0.2759
+    },
+    "MANDATE_REVOKED": {
+      "MANDATE_REAUTH_LINK": 0.2188,
+      "NUDGE_WHATSAPP": 0.1644,
+      "VOICE_CALL": 0.1795
+    },
+    "UPI_COLLECT_EXPIRED": {
+      "NUDGE_SMS": 0.219,
+      "NUDGE_WHATSAPP": 0.31,
+      "RETRY_NOW": 0.3069
+    }
+  }
+}
