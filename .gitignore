@@ -6,3 +6,5 @@ artifacts/*.db
 artifacts/*.jsonl
 artifacts/runs/
 .DS_Store
+artifacts/*.log
+artifacts/l_*.jsonl
