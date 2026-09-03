@@ -55,6 +55,9 @@ I = Intervention
 #   TERMINAL  -- genuinely nothing more to do
 # ---------------------------------------------------------------------------
 TRANSIENT_DENIALS = {
+    # Rationing is not permanent: an order refused for low EV density stays
+    # eligible, because budget frees up as cheaper orders resolve.
+    "budget.below_shadow_price",
     "contact.max_contacts_per_customer_per_24h",
     "contact.max_contacts_per_customer_per_7d",
     "contact.min_hours_between_contacts",
@@ -175,7 +178,8 @@ class Verdict:
 
 
 class PolicyEngine:
-    def __init__(self, policy_path: str, priors_path: Optional[str] = None):
+    def __init__(self, policy_path: str, priors_path: Optional[str] = None,
+                 governor=None):
         with open(policy_path) as fh:
             self.cfg = yaml.safe_load(fh)
         self.version = int(self.cfg["policy_version"])
@@ -197,6 +201,9 @@ class PolicyEngine:
         self.spend_inr: float = 0.0
         self.incentive_inr: float = 0.0
         self.halted: bool = False
+        # Optional BudgetGovernor. When present it rations a binding budget by
+        # expected-value density instead of letting arrival order decide.
+        self.governor = governor
 
     # -- helpers ------------------------------------------------------------
     def _quiet_hours(self) -> Tuple[time, time]:
@@ -465,6 +472,17 @@ class PolicyEngine:
                 stop=True, reason="BUDGET_HALT",
             )
         ok("budget.max_batch_spend_inr", f"Rs{self.spend_inr:.2f} spent of Rs{b['max_batch_spend_inr']:,.0f}")
+
+        # --- budget rationing -------------------------------------------
+        # Evaluated as a rule so the reason lands in the audit trace like any
+        # other. A refusal here is not "we ran out of money"; it is "this rupee
+        # buys more somewhere else in this batch".
+        if self.governor is not None and cost > 0:
+            ev_for_budget = proposal.believed_success_prob * order.amount_inr
+            admitted, why = self.governor.admits(ev_for_budget, cost, order.amount_inr)
+            if not admitted:
+                return deny("budget.below_shadow_price", why)
+            ok("budget.below_shadow_price", why)
 
         # 12. incentive caps ---------------------------------------------
         if proposal.incentive_inr > 0:

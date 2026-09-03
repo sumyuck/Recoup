@@ -198,8 +198,13 @@ class Diagnoser:
             return True, f"no deterministic mapping for '{reason}'"
         if facts.in_degradation and reason in ("gateway_timeout",):
             return True, "error contradicts the detected outage context"
-        if facts.kind == "B2B_INVOICE":
-            return True, "B2B collectability is a judgement, not a code lookup"
+        # Deliberately NOT here any more: a blanket "route all B2B to the model"
+        # rule. It sent 101 of 183 model-routed rows that had perfectly clean,
+        # unambiguous `invoice_overdue` fields -- questions a lookup answers
+        # correctly for free. That inflated the model's measured accuracy with
+        # trivial wins and paid for tokens that bought nothing. A B2B invoice
+        # whose fields are degraded still reaches the model via the rules above,
+        # which is the case that actually needs judgement.
         return False, ""
 
     def _tier1(self, facts: RiskFacts) -> FailureClass:

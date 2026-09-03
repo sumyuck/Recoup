@@ -35,6 +35,7 @@ GENESIS = "0" * 64
 
 class EventType(str, Enum):
     BATCH_OPEN = "BATCH_OPEN"
+    BUDGET_PLANNED = "BUDGET_PLANNED"        # shadow price solved for the batch
     SIGNAL_RAISED = "SIGNAL_RAISED"          # detection found revenue at risk
     DIAGNOSIS = "DIAGNOSIS"                  # root cause determined
     ACTION_PROPOSED = "ACTION_PROPOSED"      # agent wants to do something

@@ -42,6 +42,7 @@ from .models import (
     Order,
 )
 from .channels.voice import VoiceProvider, build_script
+from .budget import BudgetGovernor, Projection
 from .policy import PolicyEngine, Proposal, classify_denial
 from .simulate import World
 
@@ -92,6 +93,7 @@ class RunResult:
     wall_seconds: float = 0.0
     razorpay_stats: Dict = field(default_factory=dict)
     voice_stats: Dict = field(default_factory=dict)
+    governor_stats: Dict = field(default_factory=dict)
     diagnosis_timing: Dict = field(default_factory=dict)
 
 
@@ -110,6 +112,7 @@ class Orchestrator:
         voice: Optional[VoiceProvider] = None,
         merchant_name: str = "Kirana Kart",
         diagnose_workers: int = 12,
+        budget_governor: bool = True,
     ):
         self.diagnose_workers = diagnose_workers
         self.diagnosis_timing: Dict = {}
@@ -119,7 +122,14 @@ class Orchestrator:
         self.arm = arm
         self.seed = seed
         self.world = World(batch, seed=seed)
-        self.policy = PolicyEngine(policy_path, priors_path)
+        gov = None
+        if budget_governor:
+            import yaml as _yaml
+            with open(policy_path) as _fh:
+                _cfg = _yaml.safe_load(_fh)
+            gov = BudgetGovernor(budget_inr=float(_cfg["budget"]["max_batch_spend_inr"]))
+        self.governor = gov
+        self.policy = PolicyEngine(policy_path, priors_path, governor=gov)
         self.executor = Executor(self.world, chaos=chaos, seed=seed + 1, razorpay=razorpay)
         self.diagnoser = diagnoser
         self.ledger = Ledger(ledger_path, run_id=f"{batch.batch_id}:{arm}", policy_version=self.policy.version)
@@ -302,6 +312,54 @@ class Orchestrator:
             }
 
     # -- the run -------------------------------------------------------------
+    def _plan_budget(self, treated_ids: List[str]) -> None:
+        """Project each order's best paid action and solve for the shadow price.
+
+        Runs after diagnosis because the projection needs a predicted failure
+        class to know which playbook applies and what the priors say.
+        """
+        if self.governor is None:
+            return
+        projections: List[Projection] = []
+        for oid in treated_ids:
+            d = self.diagnoses.get(oid)
+            if d is None:
+                continue
+            order = self.states[oid].order
+            # Walk the whole ladder, not just the best rung. `reach` decays as
+            # each cheaper rung is assumed to have been tried and failed, which
+            # is what makes the expensive escalations cost what they really
+            # cost in expectation.
+            reach = 1.0
+            for iv in self.policy.candidates(d.failure_class):
+                p_iv = self.policy.prior(d.failure_class, iv)
+                cost = ACTION_COST_INR[iv]
+                if cost > 0:
+                    # Comms rungs may be used more than once (MAX_REPEATS_PER_
+                    # COMMS_ACTION), so a single projection per rung understated
+                    # demand and left the shadow price too low to ration
+                    # anything in the mid-budget range.
+                    repeats = (
+                        MAX_REPEATS_PER_COMMS_ACTION
+                        if iv not in (I.RETRY_NOW, I.RETRY_SCHEDULED, I.MANDATE_REPRESENT)
+                        else 1
+                    )
+                    r_k = reach
+                    for _ in range(repeats):
+                        projections.append(Projection(
+                            order_id=oid, intervention=iv.value,
+                            amount_inr=order.amount_inr, believed_p=p_iv,
+                            cost_inr=cost, reach_prob=r_k,
+                        ))
+                        r_k *= max(0.0, 1.0 - p_iv)
+                # Free or paid, a rung that succeeds ends the sequence.
+                reach *= max(0.0, 1.0 - p_iv)
+
+        plan = self.governor.plan(projections)
+        self.ledger.append(
+            EventType.BUDGET_PLANNED, Actor.POLICY, arm=self.arm, payload=plan,
+        )
+
     def run(self, max_steps_per_order: int = 10) -> RunResult:
         import time as _time
 
@@ -367,6 +425,7 @@ class Orchestrator:
                 )
             ]
             self._diagnose_all(to_diagnose)
+            self._plan_budget(treated)
 
         # --- holdout: observe only, never touch ----------------------------
         # This arm exists to measure the counterfactual. Nothing is executed,
@@ -726,6 +785,7 @@ class Orchestrator:
                 "spend_inr": round(self.policy.spend_inr, 2),
                 "ledger_entries": len(self.ledger.entries),
                 "executor_stats": self.executor.stats,
+                "budget_governor": self.governor.stats() if self.governor else None,
             },
         )
 
@@ -742,6 +802,7 @@ class Orchestrator:
             holdout_ids=holdout,
             treated_ids=treated,
             human_queue=self.human_queue,
+            governor_stats=self.governor.stats() if self.governor else {},
             diagnosis_timing=self.diagnosis_timing,
             wall_seconds=_time.perf_counter() - t0,
         )

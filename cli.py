@@ -280,6 +280,103 @@ def _print_table(report: dict) -> None:
     print(f"    human review queue     {len(report['exceptions']['human_review_queue']):4d} orders")
 
 
+def cmd_budget_sweep(args) -> None:
+    """Efficient frontier: recovery vs budget, with and without the governor.
+
+    The single-budget run cannot show what the governor is for. At ₹5,000 the
+    budget only just binds, so allocation barely matters. The question a
+    merchant actually asks is "what does another ₹1,000 of dunning spend buy
+    me, and am I spending what I have on the right orders?" -- which is a curve,
+    not a point.
+    """
+    import copy
+
+    os.makedirs(ART, exist_ok=True)
+    budgets = [int(x) for x in args.budgets.split(",")]
+    batch0 = generate_batch(n_orders=args.orders, seed=args.seed, noise=args.noise)
+    ceiling = recovery_ceiling(batch0, World(batch0, seed=args.seed))
+
+    with open(POLICY) as fh:
+        base_cfg = fh.read()
+
+    print(f"\nBudget sweep - {args.orders} orders, seed {args.seed}, "
+          f"noise {int(args.noise*100)}%")
+    print("  Governor ON rations by expected-value density; OFF spends in arrival order.\n")
+    print(f"  {'budget':>8s} {'gov':>4s} {'spend':>8s} {'recov':>6s} {'lift':>8s} "
+          f"{'incr Rs':>11s} {'acts':>6s} {'contacts':>9s} {'optout':>7s} "
+          f"{'shadow λ':>9s} {'ration':>7s}")
+    print("  " + "-" * 100)
+
+    rows = []
+    for budget in budgets:
+        for gov in (False, True):
+            # Rewrite the batch cap in a temp policy file, so the governor and
+            # the hard cap always agree on the number.
+            cfg = base_cfg.replace("max_batch_spend_inr: 5000.00",
+                                   f"max_batch_spend_inr: {budget}.00")
+            tmp = os.path.join(ART, "_sweep_policy.yaml")
+            with open(tmp, "w") as fh:
+                fh.write(cfg)
+
+            b = batch0.model_copy(deep=True)
+            world = World(b, seed=args.seed)
+            o = Orchestrator(
+                b, ARM_C, tmp, PRIORS if os.path.exists(PRIORS) else None,
+                os.path.join(ART, "_sweep_ledger.jsonl"),
+                diagnoser=Diagnoser(mode="stub"), seed=args.seed,
+                budget_governor=gov, razorpay=None,
+            )
+            o.world = world
+            o.executor.world = world
+            r = o.run()
+            m = compute_arm_metrics(b, r, world,
+                                    ceiling_value=ceiling["treated_addressable_inr"])
+            g = r.governor_stats or {}
+            rows.append({
+                "budget_inr": budget, "governor": gov,
+                "spend_inr": round(r.policy.spend_inr, 2),
+                "opt_outs": m.opt_outs_caused,
+                "contacts": m.contacts_made,
+                "wasted_contacts": m.wasted_contacts,
+                "recovered": m.treated_recovered,
+                "lift_pp": round(m.lift_pp, 2),
+                "incremental_inr": round(m.incremental_inr, 2),
+                "cost_per_100": m.cost_per_100_recovered,
+                "actions": m.actions_taken,
+                "shadow_price": g.get("shadow_price"),
+                "rationed": g.get("refused_below_threshold", 0),
+            })
+            print(f"  {budget:>8,} {('ON' if gov else 'off'):>4s} "
+                  f"{r.policy.spend_inr:>8,.0f} {m.treated_recovered:>6d} "
+                  f"{m.lift_pp:>7.1f}pp {m.incremental_inr:>11,.0f} "
+                  f"{m.actions_taken:>6d} {m.contacts_made:>9d} {m.opt_outs_caused:>7d} "
+                  f"{(g.get('shadow_price') or 0):>9.1f} {g.get('refused_below_threshold', 0):>7d}")
+        print()
+
+    out = os.path.join(ART, "budget_sweep.json")
+    with open(out, "w") as fh:
+        json.dump({"seed": args.seed, "orders": args.orders, "noise": args.noise,
+                   "rows": rows}, fh, indent=2)
+
+    # Marginal return on the last rupee, which is the number that decides
+    # whether to raise the budget at all.
+    on = [r for r in rows if r["governor"]]
+    print("  Marginal return on additional budget (governor ON)")
+    for prev, cur in zip(on, on[1:]):
+        d_spend = cur["spend_inr"] - prev["spend_inr"]
+        d_rec = cur["incremental_inr"] - prev["incremental_inr"]
+        if d_spend > 0:
+            print(f"    ₹{prev['budget_inr']:,} → ₹{cur['budget_inr']:,}: "
+                  f"₹{d_spend:,.0f} more spend bought ₹{d_rec:,.0f} more recovery "
+                  f"({d_rec/d_spend:.0f}x)")
+    print(f"\n  sweep -> {out}")
+    try:
+        os.remove(os.path.join(ART, "_sweep_policy.yaml"))
+        os.remove(os.path.join(ART, "_sweep_ledger.jsonl"))
+    except OSError:
+        pass
+
+
 def cmd_chaos(args) -> None:
     """Failure-path demo. The claim being tested is narrow and absolute:
     under injected gateway failures, zero double charges."""
@@ -507,6 +604,13 @@ def main() -> None:
     e.add_argument("--live", action="store_true", help="use the real model for diagnosis")
     e.add_argument("--stub", action="store_true", help="force offline stub diagnosis")
     e.set_defaults(func=cmd_eval)
+
+    bs = sub.add_parser("budget-sweep", help="recovery vs budget, governor on/off")
+    bs.add_argument("--orders", type=int, default=500)
+    bs.add_argument("--seed", type=int, default=20260903)
+    bs.add_argument("--noise", type=float, default=0.35)
+    bs.add_argument("--budgets", default="500,1000,2000,3500,5000,8000")
+    bs.set_defaults(func=cmd_budget_sweep)
 
     c = sub.add_parser("chaos", help="failure-path demo")
     c.add_argument("--orders", type=int, default=300)
