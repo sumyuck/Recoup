@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at": "2026-09-03T15:53:28",
+    "generated_at": "2026-09-03T23:06:49",
     "seed": 20260903,
     "chaos": 0.0,
     "diagnosis_mode": "live",
@@ -10,9 +10,13 @@
     "ledger_chain_valid": true,
     "reproduce": "python cli.py eval --orders 500 --seed 20260903 --live",
     "razorpay": {
-      "sent": 355,
-      "shadow": 0,
-      "errors": 251
+      "sent": 0,
+      "shadow": 355,
+      "errors": 0,
+      "rate_limited": 0,
+      "http_attempts": 0,
+      "sampled_out": 355,
+      "throttled_to_shadow": 0
     },
     "voice_calls_rendered": {
       "rendered": 6,
@@ -21,12 +25,12 @@
     },
     "diagnosis_timing": {
       "orders": 327,
-      "wall_seconds": 49.93,
-      "throughput_per_second": 6.5,
+      "wall_seconds": 52.53,
+      "throughput_per_second": 6.2,
       "workers": 12,
-      "p50_ms": 2467.0,
-      "p95_ms": 3782.8,
-      "max_ms": 7222.5
+      "p50_ms": 2565.2,
+      "p95_ms": 4320.5,
+      "max_ms": 7639.3
     }
   },
   "corpus": {
@@ -184,11 +188,11 @@
       },
       "economics": {
         "spend_inr": 4999.95,
-        "llm_cost_inr": 107.8263,
-        "total_cost_inr": 5107.78,
-        "net_value_inr": 1025864.48,
-        "net_value_after_optout_cost_inr": 1020452.6,
-        "cost_per_100_recovered_inr": 0.4954,
+        "llm_cost_inr": 108.0969,
+        "total_cost_inr": 5108.05,
+        "net_value_inr": 1025864.21,
+        "net_value_after_optout_cost_inr": 1020452.33,
+        "cost_per_100_recovered_inr": 0.4955,
         "actions_taken": 582,
         "contacts_made": 416
       },
@@ -231,12 +235,38 @@
         "accuracy": 1.0
       },
       "llm": {
-        "n": 182,
+        "n": 183,
         "accuracy": 0.9945
-      },
-      "fallback": {
-        "n": 1,
+      }
+    },
+    "by_difficulty": {
+      "clean_fields": {
+        "n": 245,
         "accuracy": 1.0
+      },
+      "degraded::drop": {
+        "n": 40,
+        "accuracy": 1.0
+      },
+      "degraded::misattribute": {
+        "n": 13,
+        "accuracy": 0.9231
+      },
+      "degraded::vendor": {
+        "n": 29,
+        "accuracy": 1.0
+      },
+      "degraded_fields": {
+        "n": 82,
+        "accuracy": 0.9878
+      },
+      "routed_to_model::clean": {
+        "n": 101,
+        "accuracy": 1.0
+      },
+      "routed_to_model::degraded": {
+        "n": 82,
+        "accuracy": 0.9878
       }
     },
     "by_class": {
@@ -302,35 +332,31 @@
       }
     },
     "calibration": {
-      "50-60%": {
-        "n": 1,
-        "actual_accuracy": 1.0
-      },
       "60-70%": {
-        "n": 3,
-        "actual_accuracy": 1.0
+        "n": 4,
+        "actual_accuracy": 0.75
       },
       "70-80%": {
-        "n": 8,
-        "actual_accuracy": 0.875
+        "n": 9,
+        "actual_accuracy": 1.0
       },
       "80-90%": {
-        "n": 35,
+        "n": 31,
         "actual_accuracy": 1.0
       },
       "90-100%": {
-        "n": 280,
+        "n": 283,
         "actual_accuracy": 1.0
       }
     },
     "tier_split": {
       "deterministic": 144,
       "llm": 183,
-      "fallback": 1,
-      "llm_cost_inr": 107.82631199999999,
+      "fallback": 0,
+      "llm_cost_inr": 108.09691199999993,
       "in_tokens": 213178,
-      "out_tokens": 39051,
-      "schema_violations": 1,
+      "out_tokens": 39256,
+      "schema_violations": 0,
       "api_errors": 0
     },
     "by_arm": {
@@ -347,8 +373,7 @@
         "overall_accuracy": 0.9969,
         "by_tier": {
           "deterministic": 1.0,
-          "llm": 0.9945,
-          "fallback": 1.0
+          "llm": 0.9945
         }
       }
     }

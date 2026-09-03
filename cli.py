@@ -85,11 +85,16 @@ def cmd_eval(args) -> None:
             # shadow with a loud message rather than aborting the evaluation --
             # the measurement does not depend on the Razorpay leg.
             try:
-                rzp = RazorpayTestClient(log_path=os.path.join(ART, f"razorpay_{arm}.jsonl"))
+                rzp = RazorpayTestClient(
+                    log_path=os.path.join(ART, f"razorpay_{arm}.jsonl"),
+                    run_id=f"{args.seed}{arm[0]}",
+                    live_sample=args.razorpay_sample,
+                )
             except RuntimeError as e:
                 print(f"  ! Razorpay live mode disabled: {e}")
-                rzp = RazorpayTestClient(live=False,
-                                         log_path=os.path.join(ART, f"razorpay_{arm}.jsonl"))
+                rzp = RazorpayTestClient(
+                    live=False, log_path=os.path.join(ART, f"razorpay_{arm}.jsonl"),
+                    run_id=f"{args.seed}{arm[0]}")
         o = Orchestrator(
             b, arm, POLICY, PRIORS if os.path.exists(PRIORS) else None,
             os.path.join(ART, f"ledger_{arm}.jsonl"),
@@ -100,6 +105,12 @@ def cmd_eval(args) -> None:
         o.executor.world = world
         r = o.run()
         r.razorpay_stats = rzp.stats if rzp else {}
+        if rzp and rzp.stats.get("sent"):
+            st = rzp.stats
+            print(f"      razorpay: {st['sent']} live writes upstream, "
+                  f"{st['shadow']} shadowed ({st['sampled_out']} sampled out, "
+                  f"{st['throttled_to_shadow']} throttled), {st['errors']} errors, "
+                  f"{st['rate_limited']} 429 retries")
         if r.diagnosis_timing:
             t = r.diagnosis_timing
             print(f"      diagnosis: {t['orders']} orders in {t['wall_seconds']}s "
@@ -242,6 +253,12 @@ def _print_table(report: dict) -> None:
     print(f"  Diagnosis   overall accuracy {g['overall_accuracy']}  (n={g['n']})")
     for tier, v in sorted(g["by_tier"].items()):
         print(f"                {tier:14s} n={v['n']:4d}  accuracy={v['accuracy']}")
+    bd = g.get("by_difficulty", {})
+    if bd:
+        print("              by difficulty (degraded = structured error fields damaged):")
+        for k in sorted(bd):
+            v = bd[k]
+            print(f"                {k:28s} n={v['n']:4d}  accuracy={v['accuracy']}")
     if g.get("by_arm"):
         print(f"              per arm (same rows, different diagnosers):")
         for arm_name, v in sorted(g["by_arm"].items()):
@@ -474,6 +491,11 @@ def main() -> None:
     e.add_argument("--holdout", type=int, default=20)
     e.add_argument("--chaos", type=float, default=0.0)
     e.add_argument("--out", default=None, help="report filename under artifacts/")
+    e.add_argument("--razorpay-sample", type=int, default=25,
+                   dest="razorpay_sample",
+                   help="how many actions per arm to send to the real Razorpay API "
+                        "before shadowing the rest (test mode is rate-limited). "
+                        "0 = shadow everything.")
     # Default 0.35, not 0. A clean corpus makes every failure fully determined
     # by its structured `error_reason`, both tiers score 100%, and the model
     # provably adds nothing -- which says more about the corpus than the agent.

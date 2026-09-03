@@ -1,0 +1,174 @@
+{
+  "generated_at": "2026-09-03T23:02:47",
+  "key_id": "rzp_test_TXWduqAHeRNNyj",
+  "mode": "TEST",
+  "steps": [
+    {
+      "step": "1. create Order (scheduled retry)",
+      "status": 200,
+      "id": "order_TXeDYmP1lAKQg8",
+      "request": {
+        "amount": 482000,
+        "currency": "INR",
+        "receipt": "recoup_proof_eb2bf9fa63_retry",
+        "notes": {
+          "recoup_order_id": "order_proof_eb2bf9fa63",
+          "recoup_intervention": "RETRY_SCHEDULED",
+          "recoup_diagnosed_class": "INSUFFICIENT_FUNDS",
+          "recoup_reason": "revenue recovery re-attempt"
+        }
+      },
+      "error": null
+    },
+    {
+      "step": "2. fetch Order back",
+      "status": 200,
+      "id": "order_TXeDYmP1lAKQg8",
+      "result": "status=created amount=482000p"
+    },
+    {
+      "step": "3. create Payment Link (method switch)",
+      "status": 429,
+      "id": null,
+      "result": null,
+      "error": "{\"error\":{\"code\":\"RATE_LIMIT_EXCEEDED\",\"description\":\"test mode limit of 30 reached for payment_link\",\"metadata\":[],\"reason\":null,\"source\":null,\"step\":null}}"
+    },
+    {
+      "step": "4. resubmit SAME reference_id",
+      "status": 429,
+      "result": "refused, but for THROTTLING not duplication \u2014 proves nothing"
+    },
+    {
+      "step": "6. duplicate Order receipt (uniqueness check)",
+      "status": 200,
+      "result": "Razorpay created 2 distinct orders for the same receipt -> uniqueness NOT enforced upstream"
+    }
+  ],
+  "payment_link_budget": {
+    "cap": 30,
+    "used": 25,
+    "remaining": 5,
+    "note": "Razorpay test mode caps payment links per account, permanently. This is why the evaluation shadows Razorpay by default."
+  },
+  "orders_receipt_uniqueness": {
+    "enforced_by_razorpay": false,
+    "ids_created": [
+      "order_TXeDaKCLGGHp6j",
+      "order_TXeDaOvM3ZDq3Z"
+    ],
+    "finding": "Razorpay does NOT enforce `receipt` uniqueness on /orders by default, though it DOES enforce `reference_id` on /payment_links. Upstream idempotency is therefore inconsistent across endpoints and cannot be relied on; the local idempotency ledger is the real guard."
+  },
+  "upstream_inventory": {
+    "payment_links_created_by_recoup": 25,
+    "orders_created_by_recoup": 100,
+    "sample_payment_links": [
+      {
+        "id": "plink_TXX3dZIHTwQzFL",
+        "short_url": "https://rzp.io/rzp/CD6FoGi",
+        "amount_inr": 976.48,
+        "reference_id": "recoup_222bf4d48f08886b356f",
+        "intervention": "METHOD_SWITCH_LINK"
+      },
+      {
+        "id": "plink_TXX3cM7Z9p6gXr",
+        "short_url": "https://rzp.io/rzp/MOr6xtD",
+        "amount_inr": 2540.0,
+        "reference_id": "recoup_4b71e36251c66dd5d8dc",
+        "intervention": "UPDATE_INSTRUMENT_LINK"
+      },
+      {
+        "id": "plink_TXX3d3RK8x3iP6",
+        "short_url": "https://rzp.io/rzp/dJym7Gi",
+        "amount_inr": 248.47,
+        "reference_id": "recoup_43af7994b9dec63e079d",
+        "intervention": "METHOD_SWITCH_LINK"
+      },
+      {
+        "id": "plink_TXX2aFqJWeSWUy",
+        "short_url": "https://rzp.io/rzp/hdarqijW",
+        "amount_inr": 711.71,
+        "reference_id": "recoup_401d59e5b5743420bc29",
+        "intervention": "METHOD_SWITCH_LINK"
+      },
+      {
+        "id": "plink_TXX2anCfi6JtfX",
+        "short_url": "https://rzp.io/rzp/88rPFfnI",
+        "amount_inr": 9190.0,
+        "reference_id": "recoup_8ff48b46b2e1f002c212",
+        "intervention": "METHOD_SWITCH_LINK"
+      },
+      {
+        "id": "plink_TXX2ZWCLiTFhET",
+        "short_url": "https://rzp.io/rzp/NukTeuez",
+        "amount_inr": 1470.0,
+        "reference_id": "recoup_7bd1707254f891bc7b5a",
+        "intervention": "METHOD_SWITCH_LINK"
+      },
+      {
+        "id": "plink_TXX2Yn4ipNVeqv",
+        "short_url": "https://rzp.io/rzp/RRTMMjn9",
+        "amount_inr": 578.6,
+        "reference_id": "recoup_d9dda4d23d8272a42535",
+        "intervention": "MANDATE_REAUTH_LINK"
+      },
+      {
+        "id": "plink_TXX2YBU6PmTkMh",
+        "short_url": "https://rzp.io/rzp/u9KMa8X",
+        "amount_inr": 230.75,
+        "reference_id": "recoup_f113c70182e6b26e0e16",
+        "intervention": "METHOD_SWITCH_LINK"
+      }
+    ],
+    "sample_orders": [
+      {
+        "id": "order_TXeD81j87A8iCL",
+        "amount_inr": 1234.0,
+        "intervention": "RETRY_NOW"
+      },
+      {
+        "id": "order_TXeD7xcYziFTEW",
+        "amount_inr": 1234.0,
+        "intervention": "RETRY_NOW"
+      },
+      {
+        "id": "order_TXeCi0Ub9lseIB",
+        "amount_inr": 4820.0,
+        "intervention": "RETRY_SCHEDULED"
+      },
+      {
+        "id": "order_TXeAehp1tH549M",
+        "amount_inr": 4820.0,
+        "intervention": "RETRY_SCHEDULED"
+      },
+      {
+        "id": "order_TXXInnpUq6S4qY",
+        "amount_inr": 6490.0,
+        "intervention": "RETRY_SCHEDULED"
+      },
+      {
+        "id": "order_TXXHMdAoUvbzfm",
+        "amount_inr": 473.31,
+        "intervention": "RETRY_SCHEDULED"
+      },
+      {
+        "id": "order_TXXGx4tB8mkCQa",
+        "amount_inr": 4340.0,
+        "intervention": "MANDATE_REPRESENT"
+      },
+      {
+        "id": "order_TXXFi43g6QRgt2",
+        "amount_inr": 4040.0,
+        "intervention": "RETRY_SCHEDULED"
+      }
+    ]
+  },
+  "summary": {
+    "order_id": "order_TXeDYmP1lAKQg8",
+    "payment_link_id": null,
+    "payment_link_url": null,
+    "payment_link_reference_id_enforced": false,
+    "orders_receipt_enforced": false,
+    "payment_links_upstream": 25,
+    "orders_upstream": 100
+  }
+}

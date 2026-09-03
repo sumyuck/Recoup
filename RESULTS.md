@@ -1,6 +1,6 @@
 # Results
 
-> Generated from `artifacts/report.json` on 2026-09-03T15:53:28.
+> Generated from `artifacts/report.json` on 2026-09-03T23:06:49.
 > Reproduce: `python cli.py eval --orders 500 --seed 20260903 --live`
 
 - **Corpus** — 500 at-risk orders, 360 customers, 202,005 traffic events, ₹3,760,982 at risk, seed `20260903`
@@ -64,8 +64,7 @@ Overall accuracy **0.9969** on n=327, split by tier because a blended figure hid
 | tier | n | accuracy |
 |---|---:|---:|
 | `deterministic` | 144 | 1.0 |
-| `fallback` | 1 | 1.0 |
-| `llm` | 182 | 0.9945 |
+| `llm` | 183 | 0.9945 |
 
 Accuracy **per arm**, on the same rows — this is the mechanism behind the
 agent's recovery advantage, and leaving it out of an earlier version of this
@@ -76,7 +75,7 @@ report made arm C's lift look unexplained:
 | `B_RULES` | 327 | 0.6911 |
 | `C_AGENT` | 327 | 0.9969 |
 
-Routing: 144 resolved by lookup, 183 sent to the model, 1 fell back (1 schema violations, 0 API errors). Model cost ₹108.
+Routing: 144 resolved by lookup, 183 sent to the model, 0 fell back (0 schema violations, 0 API errors). Model cost ₹108.
 
 ## Executor invariants
 
@@ -119,7 +118,7 @@ the lookup table degrades and the model does not.
 | | clean corpus | noisy corpus (default) |
 |---|---:|---:|
 | deterministic tier resolves | 207 orders | 144 orders |
-| routed to the model | 123 orders | 182 orders |
+| routed to the model | 123 orders | 183 orders |
 | diagnosis accuracy | 1.0 | 0.9969 |
 | rules-only lift | +22.4pp | +18.9pp |
 | agent lift | +25.6pp | +24.4pp |

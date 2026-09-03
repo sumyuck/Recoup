@@ -367,6 +367,11 @@ def score_diagnosis(
     from collections import defaultdict
 
     per_tier: Dict[str, List[bool]] = defaultdict(list)
+    # Split by whether the structured fields were degraded. Pooling the two
+    # gives a flattering, meaningless number: cases where `error_reason` is
+    # intact are near-trivial, and only the degraded ones actually test whether
+    # the model can recover a cause from prose.
+    per_difficulty: Dict[str, List[bool]] = defaultdict(list)
     per_class: Dict[str, Dict[str, int]] = defaultdict(lambda: {"tp": 0, "fp": 0, "fn": 0})
     conf_bins: Dict[str, List[bool]] = defaultdict(list)
 
@@ -378,6 +383,14 @@ def score_diagnosis(
         pred = d.failure_class.value
         ok = pred == true_cls
         per_tier[d.tier].append(ok)
+        noisy = bool(getattr(gt, "field_noise_applied", False))
+        bucket = f"{'degraded' if noisy else 'clean'}_fields"
+        per_difficulty[bucket].append(ok)
+        if noisy:
+            per_difficulty[f"degraded::{getattr(gt, 'noise_mode', '?')}"].append(ok)
+        # The comparison that matters: same rows, model vs lookup.
+        if d.tier in ("llm", "fallback"):
+            per_difficulty[f"routed_to_model::{'degraded' if noisy else 'clean'}"].append(ok)
         if ok:
             per_class[true_cls]["tp"] += 1
         else:
@@ -407,6 +420,10 @@ def score_diagnosis(
         "overall_accuracy": round(sum(all_ok) / len(all_ok), 4) if all_ok else None,
         "n": len(all_ok),
         "by_tier": tiers,
+        "by_difficulty": {
+            k: {"n": len(v), "accuracy": round(sum(v) / len(v), 4)}
+            for k, v in sorted(per_difficulty.items())
+        },
         "by_class": classes,
         "calibration": {
             b: {"n": len(v), "actual_accuracy": round(sum(v) / len(v), 3)}

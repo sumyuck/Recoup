@@ -201,6 +201,11 @@ class GroundTruth(BaseModel):
     intent_strength: float = 0.5
     # True if no sequence of allowed actions could ever recover this order.
     unrecoverable: bool = False
+    # Whether the structured error fields were degraded for this order, and how.
+    # Recorded so diagnosis accuracy can be split by difficulty: an LLM scoring
+    # 100% is meaningless if the hard cases and the trivial ones are pooled.
+    field_noise_applied: bool = False
+    noise_mode: Optional[str] = None
 
 
 class TrafficEvent(BaseModel):

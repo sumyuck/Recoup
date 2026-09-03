@@ -595,11 +595,13 @@ def generate_batch(
         # --- field noise -----------------------------------------------------
         # Degrade the structured fields, keep the cause recoverable from prose.
         noisy = rng.random() < noise
+        noise_mode = None
         n_reason = prof.error_reason
         n_source = prof.error_source
         n_desc_pool = prof.descriptions
         if noisy and fc in NOISY_DESCRIPTIONS:
             mode = rng.choices(["drop", "vendor", "misattribute"], weights=[40, 40, 20], k=1)[0]
+            noise_mode = mode
             n_desc_pool = NOISY_DESCRIPTIONS[fc]
             if mode == "drop":
                 # Gateway sent no machine-readable reason at all.
@@ -657,6 +659,8 @@ def generate_batch(
             responsiveness=resp,
             intent_strength=round(intent, 4),
             unrecoverable=unrec,
+            field_noise_applied=bool(noise_mode),
+            noise_mode=noise_mode,
         )
         orders.append(order)
 

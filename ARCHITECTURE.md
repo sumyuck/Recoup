@@ -156,11 +156,40 @@ These are in the log because each one changed the result.
 | 12 | +42pp lift, **99% of ceiling** | my effectiveness estimates were fantasy | `REALISM_SCALE = 0.52`, uncollectable B2B segment; lift → 30.2pp |
 | 13 | Hindi numerals wrong | composed 45 as "chalees paanch"; 21–99 are irregular words | full 0–99 table; 45 → "paintaalees" |
 | 14 | `HUMAN_ESCALATION` ambiguous | the *action* (a person calls) collided with the policy *stop* (parked for approval) | action renamed `HUMAN_COLLECTIONS_CALL` |
+| 15 | ~1,500 Razorpay 429s "fixed" with backoff | it was not throttling — test mode caps payment links at **30 per account, permanently** | eval shadows Razorpay by default; a dedicated proof script demonstrates the live leg |
+| 16 | Idempotency keys collided across arms | key had no run scope, so arm C's writes hit arm B's `reference_id` upstream | run-scoped `reference_id`; the collision itself became the upstream-idempotency proof |
+| 17 | Reported a 429 as proof of idempotency | the proof script checked `status >= 400`, so a throttle read as duplicate-rejection | check the error *code*; report "proves nothing" when it is a throttle |
+| 18 | LLM scored a suspicious 1.00 | easy B2B rows pooled with genuinely degraded ones | split accuracy by difficulty; the honest figure is 0.988 on 82 degraded rows |
 
 Bugs 11 and 12 both made the headline number **worse**, which is the point of building
 the measurement rig before tuning the agent.
 
 ---
+
+## Findings from the live Razorpay integration
+
+Two came out of running against a real test account, and both changed the design.
+
+**Test mode caps payment links at 30 per account, forever.** Not a rate limit — a
+permanent quota. The first live run consumed all 30 and then produced ~1,500 HTTP 429s
+that I read as throttling and tried to fix with backoff. The real message was
+`test mode limit of 30 reached for payment_link`. The correct response was not a better
+retry policy but an architectural one: the evaluation shadows Razorpay by default and a
+separate `scripts/razorpay_live_proof.py` proves the leg is wired. A measurement run must
+never depend on somebody else's quota, or its runtime and results vary with their limiter.
+
+**Upstream idempotency is inconsistent across endpoints.** `payment_links.reference_id`
+is enforced unique; `orders.receipt` is not, by default. I discovered the first because
+arms B and C generated identical idempotency keys — the key is
+`sha256(order_id, intervention, attempt_idx)` with no run scope — and Razorpay rejected
+the collisions with `already exists`. That was the API confirming the protection is real
+upstream. Then I checked whether Orders behaved the same way and found they do not:
+two POSTs with an identical `receipt` returned two distinct order ids.
+
+The conclusion is the one the design already assumed but had not verified: the local
+hash-chained idempotency ledger is the load-bearing guard, and API-side uniqueness is an
+inconsistent secondary net. `reference_id` is now run-scoped so a replay of the same seed
+does not collide with itself.
 
 ## What I would build next
 
