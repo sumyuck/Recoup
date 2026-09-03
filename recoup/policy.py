@@ -58,6 +58,7 @@ TRANSIENT_DENIALS = {
     # Rationing is not permanent: an order refused for low EV density stays
     # eligible, because budget frees up as cheaper orders resolve.
     "budget.below_shadow_price",
+    "budget.max_share_per_action_type",
     "contact.max_contacts_per_customer_per_24h",
     "contact.max_contacts_per_customer_per_7d",
     "contact.min_hours_between_contacts",
@@ -183,12 +184,18 @@ class PolicyEngine:
         with open(policy_path) as fh:
             self.cfg = yaml.safe_load(fh)
         self.version = int(self.cfg["policy_version"])
+        # "response" or "uplift" -- see the objective block in policy.yaml.
+        self.objective = str(self.cfg.get("objective", "response")).lower()
         self.priors = DEFAULT_PRIORS
+        self.control_rates: Dict[str, float] = {}
         self.priors_source = "built-in defaults"
         if priors_path and os.path.exists(priors_path):
             with open(priors_path) as fh:
                 loaded = json.load(fh)
             self.priors = loaded.get("priors", DEFAULT_PRIORS)
+            # Organic recovery rate per class, measured on an untouched control
+            # arm during calibration. This is what turns response into uplift.
+            self.control_rates = loaded.get("control_rates", {})
             self.priors_source = f"learned from {loaded.get('calibration_batch', priors_path)}"
 
         # --- mutable run state ------------------------------------------
@@ -199,6 +206,7 @@ class PolicyEngine:
         self.opted_out: set = set()
         self.promises: Dict[str, datetime] = {}                # order -> promised date
         self.spend_inr: float = 0.0
+        self.spend_by_action: Dict[str, float] = {}
         self.incentive_inr: float = 0.0
         self.halted: bool = False
         # Optional BudgetGovernor. When present it rations a binding budget by
@@ -219,7 +227,35 @@ class PolicyEngine:
         return t >= start or t < end
 
     def prior(self, cls: FailureClass, iv: Intervention) -> float:
+        """P(recover | this action taken). Response, not uplift."""
         return self.priors.get(cls.value, {}).get(iv.value, 0.05)
+
+    def control_rate(self, cls: FailureClass) -> float:
+        """P(recover | nothing done) for this class, from the control arm."""
+        return self.control_rates.get(cls.value, 0.0)
+
+    def score(self, cls: FailureClass, iv: Intervention) -> float:
+        """The quantity the agent maximises, per the configured objective."""
+        if self.objective == "uplift":
+            return max(0.0, self.uplift(cls, iv))
+        return self.prior(cls, iv)
+
+    def uplift(self, cls: FailureClass, iv: Intervention) -> float:
+        """Incremental recovery probability this action actually causes.
+
+        The distinction that matters most in this system. Ranking by response
+        sends the budget at whatever recovers most often, which is dominated by
+        failures that were going to resolve themselves: an ISSUER_DOWN order
+        recovers ~68% of the time with nobody doing anything, so a 0.62 response
+        rate on a WhatsApp there is *negative* uplift -- money and goodwill
+        spent to make the outcome slightly worse, plus opt-out risk taken on for
+        recovery that was already coming.
+
+        Ranking by uplift also makes the agent's objective identical to the
+        metric it is scored on. The holdout measures incremental recovery, so
+        the agent optimises incremental recovery.
+        """
+        return self.prior(cls, iv) - self.control_rate(cls)
 
     def next_retry_time(self, now: datetime, attempt_idx: int, payday_aware: bool) -> datetime:
         backoff = self.cfg["retries"]["backoff_minutes"]
@@ -462,6 +498,22 @@ class PolicyEngine:
                 )
             ok("budget.max_action_cost_as_pct_of_amount", f"cost is {pct:.2f}% of order value")
 
+        # Concentration cap -- stops one expensive action type eating the batch.
+        share_cap = b.get("max_share_per_action_type")
+        if share_cap and cost > 0:
+            spent_on_type = self.spend_by_action.get(iv.value, 0.0)
+            ceiling_inr = b["max_batch_spend_inr"] * float(share_cap)
+            if spent_on_type + cost > ceiling_inr:
+                return deny(
+                    "budget.max_share_per_action_type",
+                    f"{iv.value} has used Rs{spent_on_type:,.2f} of its "
+                    f"Rs{ceiling_inr:,.2f} share ({share_cap:.0%} of batch budget); "
+                    f"concentrating further would crowd out cheaper actions that "
+                    f"recover more in aggregate",
+                )
+            ok("budget.max_share_per_action_type",
+               f"{iv.value} at Rs{spent_on_type:,.2f} of Rs{ceiling_inr:,.2f} share")
+
         if self.spend_inr + cost > b["max_batch_spend_inr"]:
             if not dry_run:
                 self.halted = True
@@ -478,7 +530,9 @@ class PolicyEngine:
         # other. A refusal here is not "we ran out of money"; it is "this rupee
         # buys more somewhere else in this batch".
         if self.governor is not None and cost > 0:
-            ev_for_budget = proposal.believed_success_prob * order.amount_inr
+            # Density is uplift-based too: the budget should buy incremental
+            # recovery, not credit for organic recovery.
+            ev_for_budget = self.score(cls, iv) * order.amount_inr
             admitted, why = self.governor.admits(ev_for_budget, cost, order.amount_inr)
             if not admitted:
                 return deny("budget.below_shadow_price", why)
@@ -497,11 +551,28 @@ class PolicyEngine:
                 return deny("budget.max_batch_incentive_inr", "batch incentive budget exhausted")
             ok("budget.max_incentive_pct_of_order", f"incentive Rs{proposal.incentive_inr:.2f} within cap")
 
-        # 13. economic stopping rule -------------------------------------
+        # 13. uplift gate --------------------------------------------------
+        # Refuse actions that do not cause recovery. An action whose uplift is
+        # at or below zero is, at best, spending to achieve what would have
+        # happened anyway -- and it still carries opt-out risk.
+        up = self.uplift(cls, iv)
+        min_up = self.cfg["stopping"].get("min_uplift", 0.0)
+        if self.objective == "uplift" and cost > 0 and up <= min_up:
+            return deny(
+                "stopping.min_uplift",
+                f"{iv.value} on {cls.value} has uplift {up:+.3f} "
+                f"(response {self.prior(cls, iv):.3f} vs organic "
+                f"{self.control_rate(cls):.3f}); this class largely recovers on "
+                f"its own, so the action buys nothing and risks an opt-out",
+            )
+        ok("stopping.min_uplift", f"uplift {up:+.3f} over organic "
+                                  f"{self.control_rate(cls):.3f}")
+
+        # 14. economic stopping rule -------------------------------------
         # This is what stops the agent harassing low-value orders: if the
-        # expected recovery does not clear a multiple of the action's cost,
-        # doing nothing is the correct choice.
-        ev = proposal.believed_success_prob * order.amount_inr
+        # expected INCREMENTAL recovery does not clear a multiple of the
+        # action's cost, doing nothing is the correct choice.
+        ev = self.score(cls, iv) * order.amount_inr
         min_ratio = self.cfg["stopping"]["min_expected_value_ratio"]
         if cost > 0 and ev < min_ratio * cost:
             return deny(
@@ -519,6 +590,9 @@ class PolicyEngine:
         iv = proposal.intervention
         self.actions_taken[order.order_id] = self.actions_taken.get(order.order_id, 0) + 1
         self.spend_inr += proposal.cost_inr
+        self.spend_by_action[iv.value] = (
+            self.spend_by_action.get(iv.value, 0.0) + proposal.cost_inr
+        )
         self.incentive_inr += proposal.incentive_inr
         if iv in MONEY_ACTIONS:
             self.money_attempts[order.order_id] = self.money_attempts.get(order.order_id, 0) + 1

@@ -24,6 +24,21 @@ budget:
   max_incentive_pct_of_order: 5.0
   max_batch_incentive_inr: 2000.00
 
+  # Concentration limit: no single action type may consume more than this share
+  # of the batch budget.
+  #
+  # This exists because of a measured pathology, not a hunch. Recovery was
+  # NON-MONOTONIC in budget -- Rs500 recovered 172 orders, Rs2,000 recovered
+  # 134. At Rs500 the agent cannot afford Rs150 human collection calls so it
+  # buys ~512 cheap contacts; at Rs2,000 it can afford ~13 calls, which consume
+  # the budget and crowd out hundreds of Rs0.05-Rs0.80 messages that between
+  # them recover far more. More money bought less recovery.
+  #
+  # The shadow-price governor handles this when the budget is tight enough to
+  # bind, but in the mid-range it does not bind and arrival order decides. A
+  # hard concentration cap fixes it directly and is trivial to reason about.
+  max_share_per_action_type: 0.35
+
 # --- Retry discipline ------------------------------------------------------
 retries:
   max_attempts_per_order: 3
@@ -95,7 +110,33 @@ stopping:
   max_sequence_age_days: 21
   # Economic stop: if the expected value of the next action is below its cost,
   # stop. This is what prevents the agent from harassing low-value orders.
+  # EV here is UPLIFT-based, not response-based.
   min_expected_value_ratio: 1.5   # EV(action) must exceed 1.5x cost(action)
+
+  # Uplift floor. An action must actually CAUSE recovery to be permitted.
+  # Measured on a control arm during calibration: some classes -- transient
+  # issuer outages especially -- recover on their own most of the time, and
+  # contacting those customers has zero or negative uplift while still risking
+  # a permanent opt-out. 0.0 means "must be strictly better than doing nothing".
+  min_uplift: 0.0
+
+# --- Objective -------------------------------------------------------------
+# What the agent maximises when ranking and funding actions.
+#
+#   response  expected recovery         P(recover | action) x amount
+#   uplift    expected INCREMENTAL      [P(recover | action) - P(recover | none)] x amount
+#
+# `uplift` is the theoretically correct objective -- it is the same quantity the
+# randomized holdout measures, and it refuses to spend on orders that were going
+# to recover anyway. `response` chases raw recovery and will happily contact a
+# customer whose issuer outage is about to clear.
+#
+# Measured, not assumed: `uplift` weakly dominates on this corpus -- better at a
+# tight budget (20.4pp vs 19.7pp, with fewer wasted contacts and opt-outs) and
+# identical once budget stops binding. It is also the objective consistent with
+# how the system is scored, since the holdout measures incremental recovery.
+# The comparison lives in artifacts/objective_compare.json.
+objective: uplift
 
 # --- Measurement -----------------------------------------------------------
 experiment:

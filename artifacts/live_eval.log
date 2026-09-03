@@ -4,11 +4,11 @@ Recoup evaluation
   holdout     20% randomized, stratified by (kind x failure class)
   seed        20260903
   field noise 35% of orders have dropped / vendor-specific / misattributed error fields
-  ran A_BASELINE    0.6s   2641 ledger entries
-      diagnosis: 327 orders in 0.02s (18326.2/s, 12 workers) p50 0.0ms p95 1.0ms
-  ran B_RULES       1.9s   3264 ledger entries
-      diagnosis: 327 orders in 43.01s (7.6/s, 12 workers) p50 0.0ms p95 3988.5ms
-  ran C_AGENT      45.0s   3351 ledger entries  [diagnosis: live/claude-sonnet-5]
+  ran A_BASELINE    0.7s   2641 ledger entries
+      diagnosis: 327 orders in 0.02s (17307.1/s, 12 workers) p50 0.0ms p95 1.3ms
+  ran B_RULES       2.4s   3384 ledger entries
+      diagnosis: 327 orders in 39.75s (8.2/s, 12 workers) p50 0.0ms p95 3830.9ms
+  ran C_AGENT      42.3s   3590 ledger entries  [diagnosis: live/claude-sonnet-5]
 
   Recovery ceiling
     total at risk                  Rs3,760,982
@@ -19,17 +19,17 @@ Recoup evaluation
   arm            treated   holdout     lift           95% CI     incr Rs     spend      net Rs   Rs/100  sig
   ------------------------------------------------------------------------------------------------------------
   A_BASELINE       27.9%     23.2%    +4.7pp     [-4.6,+13.2]     331,617         0     331,617    0.000   NO
-  B_RULES          44.4%     23.2%   +21.2pp    [+11.8,+30.3]   1,055,552     5,000   1,050,553    0.474  yes
-  C_AGENT          51.4%     23.2%   +28.1pp    [+18.6,+37.2]   1,092,435     5,000   1,087,350    0.465  yes
+  B_RULES          45.1%     23.2%   +21.9pp    [+12.3,+30.8]     955,851     2,230     953,621    0.233  yes
+  C_AGENT          54.6%     23.2%   +31.4pp    [+22.0,+40.5]   1,035,339     2,339   1,032,916    0.234  yes
 
   Incremental value OVER the retry schedule a merchant already runs
-    B_RULES       +16.5pp vs baseline      Rs723,935 extra recovered   cost  Rs5,000   Rs0.691 per Rs100
-    C_AGENT       +23.4pp vs baseline      Rs760,818 extra recovered   cost  Rs5,085   Rs0.668 per Rs100
+    B_RULES       +17.2pp vs baseline      Rs624,233 extra recovered   cost  Rs2,230   Rs0.357 per Rs100
+    C_AGENT       +26.7pp vs baseline      Rs703,722 extra recovered   cost  Rs2,423   Rs0.344 per Rs100
 
   False-positive cost (what a raw recovery rate hides)
     A_BASELINE   self-heal not claimed:  77   wasted contacts:   0   opt-outs:   0 (forward cost Rs0)   net after opt-out cost: Rs331,617
-    B_RULES      self-heal not claimed:  82   wasted contacts:  12   opt-outs:  26 (forward cost Rs11,909)   net after opt-out cost: Rs1,038,643
-    C_AGENT      self-heal not claimed:  81   wasted contacts:  11   opt-outs:  20 (forward cost Rs9,259)   net after opt-out cost: Rs1,078,092
+    B_RULES      self-heal not claimed:  82   wasted contacts:  12   opt-outs:  29 (forward cost Rs13,557)   net after opt-out cost: Rs940,064
+    C_AGENT      self-heal not claimed:  79   wasted contacts:   9   opt-outs:  35 (forward cost Rs14,628)   net after opt-out cost: Rs1,018,288
 
   Detection   injected 2  found 2  precision 1.0  recall 1.0  (shadows collapsed: 3, hypotheses tested: 3563)
   Diagnosis   overall accuracy 0.9969  (n=327)
@@ -55,9 +55,10 @@ Recoup evaluation
     breaker trips                 0
 
   Exception list (unrecovered, by reason)
-    NO_ELIGIBLE_ACTION      164 orders   Rs1,097,054
-    HUMAN_ESCALATED          11 orders     Rs417,980
-    OPT_OUT                  20 orders      Rs44,591
-    human review queue       11 orders
+    NO_ELIGIBLE_ACTION      130 orders     Rs943,779
+    HUMAN_ESCALATED          12 orders     Rs525,500
+    OPT_OUT                  35 orders     Rs106,208
+    EXHAUSTED_LADDER          5 orders      Rs41,234
+    human review queue       12 orders
 
   full report -> artifacts/report.json

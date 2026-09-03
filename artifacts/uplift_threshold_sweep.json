@@ -1,0 +1,58 @@
+[
+  {
+    "min_uplift": "OFF",
+    "lift": 11.43,
+    "incr": 752866,
+    "net_after_optout": 747866,
+    "optouts": 3,
+    "wasted": 0
+  },
+  {
+    "min_uplift": "-0.10",
+    "lift": 11.43,
+    "incr": 752866,
+    "net_after_optout": 747866,
+    "optouts": 3,
+    "wasted": 0
+  },
+  {
+    "min_uplift": "-0.05",
+    "lift": 11.43,
+    "incr": 752866,
+    "net_after_optout": 747866,
+    "optouts": 3,
+    "wasted": 0
+  },
+  {
+    "min_uplift": "-0.02",
+    "lift": 11.43,
+    "incr": 752866,
+    "net_after_optout": 747866,
+    "optouts": 3,
+    "wasted": 0
+  },
+  {
+    "min_uplift": "+0.00",
+    "lift": 11.43,
+    "incr": 752866,
+    "net_after_optout": 747866,
+    "optouts": 3,
+    "wasted": 0
+  },
+  {
+    "min_uplift": "+0.02",
+    "lift": 11.43,
+    "incr": 752866,
+    "net_after_optout": 747866,
+    "optouts": 3,
+    "wasted": 0
+  },
+  {
+    "min_uplift": "+0.05",
+    "lift": 11.93,
+    "incr": 703844,
+    "net_after_optout": 698844,
+    "optouts": 3,
+    "wasted": 0
+  }
+]

@@ -1,0 +1,68 @@
+[
+  {
+    "budget": 500,
+    "objective": "response",
+    "lift_pp": 19.66,
+    "incremental_inr": 898387,
+    "net_after_optout": 898134,
+    "opt_outs": 23,
+    "wasted": 14,
+    "contacts": 510,
+    "spend": 253
+  },
+  {
+    "budget": 500,
+    "objective": "uplift",
+    "lift_pp": 20.41,
+    "incremental_inr": 901771,
+    "net_after_optout": 901527,
+    "opt_outs": 22,
+    "wasted": 12,
+    "contacts": 513,
+    "spend": 245
+  },
+  {
+    "budget": 2000,
+    "objective": "response",
+    "lift_pp": 21.9,
+    "incremental_inr": 955851,
+    "net_after_optout": 954619,
+    "opt_outs": 29,
+    "wasted": 12,
+    "contacts": 605,
+    "spend": 1232
+  },
+  {
+    "budget": 2000,
+    "objective": "uplift",
+    "lift_pp": 21.9,
+    "incremental_inr": 955851,
+    "net_after_optout": 954620,
+    "opt_outs": 29,
+    "wasted": 12,
+    "contacts": 602,
+    "spend": 1231
+  },
+  {
+    "budget": 5000,
+    "objective": "response",
+    "lift_pp": 21.9,
+    "incremental_inr": 955851,
+    "net_after_optout": 953621,
+    "opt_outs": 29,
+    "wasted": 12,
+    "contacts": 604,
+    "spend": 2229
+  },
+  {
+    "budget": 5000,
+    "objective": "uplift",
+    "lift_pp": 21.9,
+    "incremental_inr": 955851,
+    "net_after_optout": 953621,
+    "opt_outs": 29,
+    "wasted": 12,
+    "contacts": 604,
+    "spend": 2229
+  }
+]

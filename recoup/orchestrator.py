@@ -248,7 +248,8 @@ class Orchestrator:
             # Net expected value. Arms B and C both use this; the difference
             # between them is the quality of `cls`, which drives which
             # candidates exist and what the priors say.
-            ev = p * order.amount_inr - prop.cost_inr
+            # Rank by incremental recovery, not raw response.
+            ev = self.policy.score(cls, iv) * order.amount_inr - prop.cost_inr
             scored.append((ev, prop))
 
         if not scored:
@@ -333,6 +334,7 @@ class Orchestrator:
             reach = 1.0
             for iv in self.policy.candidates(d.failure_class):
                 p_iv = self.policy.prior(d.failure_class, iv)
+                u_iv = self.policy.score(d.failure_class, iv)
                 cost = ACTION_COST_INR[iv]
                 if cost > 0:
                     # Comms rungs may be used more than once (MAX_REPEATS_PER_
@@ -348,7 +350,7 @@ class Orchestrator:
                     for _ in range(repeats):
                         projections.append(Projection(
                             order_id=oid, intervention=iv.value,
-                            amount_inr=order.amount_inr, believed_p=p_iv,
+                            amount_inr=order.amount_inr, believed_p=u_iv,
                             cost_inr=cost, reach_prob=r_k,
                         ))
                         r_k *= max(0.0, 1.0 - p_iv)

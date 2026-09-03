@@ -1,69 +1,84 @@
 {
-  "calibration_batch": "seed=424242, n=4000",
-  "method": "random-action exploration; Laplace-smoothed success rate grouped by (diagnosed class, intervention)",
+  "calibration_batch": "seed=424242, n=6000",
+  "method": "random-action exploration with a 20% untouched control arm; Laplace-smoothed success rates grouped by (diagnosed class, intervention). Control arm gives the organic recovery rate per class, so uplift = response - control.",
   "evaluation_seed_is_different": true,
+  "control_horizon_days": 21,
   "priors": {
     "AUTH_3DS_TIMEOUT": {
-      "METHOD_SWITCH_LINK": 0.2521,
-      "NUDGE_EMAIL": 0.1639,
-      "NUDGE_SMS": 0.2748,
-      "NUDGE_WHATSAPP": 0.2131
+      "METHOD_SWITCH_LINK": 0.3563,
+      "NUDGE_EMAIL": 0.2448,
+      "NUDGE_SMS": 0.2245,
+      "NUDGE_WHATSAPP": 0.229
     },
     "CARD_EXPIRED": {
-      "NUDGE_SMS": 0.1852,
-      "NUDGE_WHATSAPP": 0.1343,
-      "UPDATE_INSTRUMENT_LINK": 0.3051,
-      "VOICE_CALL": 0.2727
+      "NUDGE_SMS": 0.3067,
+      "NUDGE_WHATSAPP": 0.2727,
+      "UPDATE_INSTRUMENT_LINK": 0.2973,
+      "VOICE_CALL": 0.3494
     },
     "CHECKOUT_ABANDONED": {
-      "METHOD_SWITCH_LINK": 0.25,
-      "NUDGE_EMAIL": 0.092,
-      "NUDGE_SMS": 0.1798,
-      "NUDGE_WHATSAPP": 0.2111
+      "METHOD_SWITCH_LINK": 0.3229,
+      "NUDGE_EMAIL": 0.2697,
+      "NUDGE_SMS": 0.1979,
+      "NUDGE_WHATSAPP": 0.3451
     },
     "DO_NOT_HONOR": {
-      "METHOD_SWITCH_LINK": 0.1339,
-      "NUDGE_WHATSAPP": 0.08,
-      "VOICE_CALL": 0.1327
+      "METHOD_SWITCH_LINK": 0.2923,
+      "NUDGE_WHATSAPP": 0.2313,
+      "VOICE_CALL": 0.2946
     },
     "GATEWAY_TIMEOUT": {
-      "NUDGE_SMS": 0.2262,
-      "RETRY_NOW": 0.3375,
-      "RETRY_SCHEDULED": 0.3797
+      "NUDGE_SMS": 0.6299,
+      "RETRY_NOW": 0.7132,
+      "RETRY_SCHEDULED": 0.7179
     },
     "INSUFFICIENT_FUNDS": {
-      "METHOD_SWITCH_LINK": 0.2338,
-      "NUDGE_SMS": 0.1961,
-      "NUDGE_WHATSAPP": 0.1754,
-      "RETRY_SCHEDULED": 0.3521,
-      "VOICE_CALL": 0.3279
+      "METHOD_SWITCH_LINK": 0.3667,
+      "NUDGE_SMS": 0.411,
+      "NUDGE_WHATSAPP": 0.3594,
+      "RETRY_SCHEDULED": 0.4342,
+      "VOICE_CALL": 0.5122
     },
     "INVOICE_OVERDUE": {
-      "HUMAN_COLLECTIONS_CALL": 0.2262,
-      "NUDGE_EMAIL": 0.1458,
-      "NUDGE_WHATSAPP": 0.3117,
-      "VOICE_CALL": 0.2621
+      "HUMAN_COLLECTIONS_CALL": 0.3359,
+      "NUDGE_EMAIL": 0.3137,
+      "NUDGE_WHATSAPP": 0.3233,
+      "VOICE_CALL": 0.4248
     },
     "ISSUER_DOWN": {
-      "METHOD_SWITCH_LINK": 0.2556,
-      "NUDGE_SMS": 0.1558,
-      "NUDGE_WHATSAPP": 0.2619,
-      "RETRY_SCHEDULED": 0.4605
+      "METHOD_SWITCH_LINK": 0.7812,
+      "NUDGE_SMS": 0.7398,
+      "NUDGE_WHATSAPP": 0.7324,
+      "RETRY_SCHEDULED": 0.75
     },
     "MANDATE_INSUFFICIENT": {
-      "MANDATE_REPRESENT": 0.08,
-      "NUDGE_SMS": 0.1173,
-      "NUDGE_WHATSAPP": 0.2759
+      "MANDATE_REPRESENT": 0.2908,
+      "NUDGE_SMS": 0.4279,
+      "NUDGE_WHATSAPP": 0.3538
     },
     "MANDATE_REVOKED": {
-      "MANDATE_REAUTH_LINK": 0.2188,
-      "NUDGE_WHATSAPP": 0.1644,
-      "VOICE_CALL": 0.1795
+      "MANDATE_REAUTH_LINK": 0.3077,
+      "NUDGE_WHATSAPP": 0.2338,
+      "VOICE_CALL": 0.2857
     },
     "UPI_COLLECT_EXPIRED": {
-      "NUDGE_SMS": 0.219,
-      "NUDGE_WHATSAPP": 0.31,
-      "RETRY_NOW": 0.3069
+      "NUDGE_SMS": 0.4424,
+      "NUDGE_WHATSAPP": 0.503,
+      "RETRY_NOW": 0.4939
     }
+  },
+  "control_rates": {
+    "ISSUER_DOWN": 0.698,
+    "MANDATE_INSUFFICIENT": 0.2229,
+    "CHECKOUT_ABANDONED": 0.1605,
+    "CARD_EXPIRED": 0.0278,
+    "RISK_BLOCKED": 0.0213,
+    "GATEWAY_TIMEOUT": 0.5729,
+    "INVOICE_OVERDUE": 0.1667,
+    "UPI_COLLECT_EXPIRED": 0.31,
+    "AUTH_3DS_TIMEOUT": 0.1039,
+    "MANDATE_REVOKED": 0.0308,
+    "DO_NOT_HONOR": 0.1519,
+    "INSUFFICIENT_FUNDS": 0.2111
   }
 }

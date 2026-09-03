@@ -1,11 +1,11 @@
 # Results
 
-> Generated from `artifacts/report.json` on 2026-09-03T23:06:49.
+> Generated from `artifacts/report.json` on 2026-09-03T23:44:29.
 > Reproduce: `python cli.py eval --orders 500 --seed 20260903 --live`
 
 - **Corpus** — 500 at-risk orders, 360 customers, 202,005 traffic events, ₹3,760,982 at risk, seed `20260903`
 - **Diagnosis mode** — `live` (`claude-sonnet-5`)
-- **Policy** — v3; priors learned from seed=424242, n=4000
+- **Policy** — v3; priors learned from seed=424242, n=6000
 - **Ledger hash chain** — valid
 
 ## The recovery ceiling
@@ -27,10 +27,10 @@ decision policy differs.
 | arm | treated recovery | holdout recovery | lift | 95% CI | incremental | cost | net | ₹/₹100 | significant |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|:--:|
 | `A_BASELINE` | 27.93% (112/401) | 23.23% (23/99) | **+4.7pp** | -4.6 – +13.2 | ₹331,617 | ₹0 | ₹331,617 | 0.000 | **no** |
-| `B_RULES` | 42.14% (169/401) | 23.23% (23/99) | **+18.9pp** | +9.4 – +28.0 | ₹962,656 | ₹5,000 | ₹957,656 | 0.519 | yes |
-| `C_AGENT` | 47.63% (191/401) | 23.23% (23/99) | **+24.4pp** | +14.8 – +33.4 | ₹1,030,972 | ₹5,108 | ₹1,025,864 | 0.495 | yes |
+| `B_RULES` | 45.14% (181/401) | 23.23% (23/99) | **+21.9pp** | +12.3 – +30.8 | ₹955,851 | ₹2,230 | ₹953,621 | 0.233 | yes |
+| `C_AGENT` | 54.61% (219/401) | 23.23% (23/99) | **+31.4pp** | +22.0 – +40.5 | ₹1,035,339 | ₹2,423 | ₹1,032,916 | 0.234 | yes |
 
-**Against the retry schedule a merchant already runs** (arm A, not the holdout): `C_AGENT` adds **+19.7pp** and **₹699,355** for ₹5,108 of spend — 0.730 rupees per ₹100 recovered. That is the number a merchant actually buys.
+**Against the retry schedule a merchant already runs** (arm A, not the holdout): `C_AGENT` adds **+26.7pp** and **₹703,722** for ₹2,423 of spend — 0.344 rupees per ₹100 recovered. That is the number a merchant actually buys.
 
 ## False-positive cost
 
@@ -39,8 +39,8 @@ What a raw recovery rate hides.
 | arm | self-heal recoveries *not* claimed | wasted contacts | opt-outs caused | parked for human |
 |---|---:|---:|---:|---:|
 | `A_BASELINE` | 77 | 0 | 0 | 0 |
-| `B_RULES` | 81 | 9 | 17 | 10 |
-| `C_AGENT` | 79 | 6 | 16 | 10 |
+| `B_RULES` | 82 | 12 | 29 | 12 |
+| `C_AGENT` | 79 | 9 | 35 | 12 |
 
 ## Detection
 
@@ -63,8 +63,8 @@ Overall accuracy **0.9969** on n=327, split by tier because a blended figure hid
 
 | tier | n | accuracy |
 |---|---:|---:|
-| `deterministic` | 144 | 1.0 |
-| `llm` | 183 | 0.9945 |
+| `deterministic` | 183 | 1.0 |
+| `llm` | 144 | 0.9931 |
 
 Accuracy **per arm**, on the same rows — this is the mechanism behind the
 agent's recovery advantage, and leaving it out of an earlier version of this
@@ -75,13 +75,13 @@ report made arm C's lift look unexplained:
 | `B_RULES` | 327 | 0.6911 |
 | `C_AGENT` | 327 | 0.9969 |
 
-Routing: 144 resolved by lookup, 183 sent to the model, 0 fell back (0 schema violations, 0 API errors). Model cost ₹108.
+Routing: 183 resolved by lookup, 144 sent to the model, 0 fell back (0 schema violations, 0 API errors). Model cost ₹84.
 
 ## Executor invariants
 
 | invariant | value |
 |---|---:|
-| `calls` | 569 |
+| `calls` | 737 |
 | `transient_errors` | 0 |
 | `ambiguous_timeouts` | 0 |
 | `retries` | 0 |
@@ -98,11 +98,12 @@ Verified under injected failure at 0/15/35/60% chaos via `python cli.py chaos`, 
 
 | reason | orders | value |
 |---|---:|---:|
-| `NO_ELIGIBLE_ACTION` | 184 | ₹1,192,882 |
-| `HUMAN_ESCALATED` | 10 | ₹395,590 |
-| `OPT_OUT` | 16 | ₹32,616 |
+| `NO_ELIGIBLE_ACTION` | 130 | ₹943,779 |
+| `HUMAN_ESCALATED` | 12 | ₹525,500 |
+| `OPT_OUT` | 35 | ₹106,208 |
+| `EXHAUSTED_LADDER` | 5 | ₹41,234 |
 
-Plus 10 orders parked for human approval (above the autonomous limit, or flagged in dispute / legal hold).
+Plus 12 orders parked for human approval (above the autonomous limit, or flagged in dispute / legal hold).
 
 ## Ablation — does the model earn its place?
 
@@ -117,12 +118,12 @@ the lookup table degrades and the model does not.
 
 | | clean corpus | noisy corpus (default) |
 |---|---:|---:|
-| deterministic tier resolves | 207 orders | 144 orders |
-| routed to the model | 123 orders | 183 orders |
+| deterministic tier resolves | 207 orders | 183 orders |
+| routed to the model | 123 orders | 144 orders |
 | diagnosis accuracy | 1.0 | 0.9969 |
-| rules-only lift | +22.4pp | +18.9pp |
-| agent lift | +25.6pp | +24.4pp |
-| **model contribution (C − B)** | **+3.3pp / ₹23,708** | **+5.5pp / ₹68,316** |
+| rules-only lift | +22.4pp | +21.9pp |
+| agent lift | +25.6pp | +31.4pp |
+| **model contribution (C − B)** | **+3.3pp / ₹23,708** | **+9.5pp / ₹79,489** |
 
 So the answer is conditional, and worth stating plainly: **on tidy data the
 model is not worth its latency or its cost. It earns its place precisely where

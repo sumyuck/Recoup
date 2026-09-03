@@ -160,11 +160,86 @@ These are in the log because each one changed the result.
 | 16 | Idempotency keys collided across arms | key had no run scope, so arm C's writes hit arm B's `reference_id` upstream | run-scoped `reference_id`; the collision itself became the upstream-idempotency proof |
 | 17 | Reported a 429 as proof of idempotency | the proof script checked `status >= 400`, so a throttle read as duplicate-rejection | check the error *code*; report "proves nothing" when it is a throttle |
 | 18 | LLM scored a suspicious 1.00 | easy B2B rows pooled with genuinely degraded ones | split accuracy by difficulty; the honest figure is 0.988 on 82 degraded rows |
+| 19 | Budget spent in arrival order | 227 candidates refused after the cap, regardless of value | shadow-price governor over the projected action ladder |
+| 20 | Governor was inert | projecting each order's *best-density* action always picks the cheapest rung — ₹26 projected demand vs ₹5,000 actual | project the whole ladder, weighted by reach probability |
+| 21 | Governor still didn't ration mid-range | comms rungs can repeat; single-projection-per-rung understated demand | project repeats, λ rose enough to bite |
+| 22 | **Recovery non-monotonic in budget** | ₹500 → 172 orders, ₹2,000 → 134; ₹150 human calls crowded out ~350 cheap contacts | `max_share_per_action_type: 0.35`; monotonic again, lift 12.9 → 21.9pp |
+| 23 | Agent preferred outage messaging to dead-card calls | ranked by response, which is dominated by orders that self-heal | rank by uplift = response − control |
+| 24 | Uplift negative on transient classes (impossible) | control arm assigned `i % 5` on a **time-sorted** list — systematic, not random, and correlated with outage windows | hash-based control assignment |
+| 25 | Uplift *still* negative on ISSUER_DOWN | treatment arm skipped orders that self-healed before action time; control kept them — differential selection | score both arms on the same population and rule |
 
 Bugs 11 and 12 both made the headline number **worse**, which is the point of building
 the measurement rig before tuning the agent.
 
 ---
+
+## Allocation: the budget is the binding constraint
+
+The evaluation's largest weakness was not the agent's judgement, it was its
+spending. With a hard batch cap the agent spent **first-come-first-served in
+arrival order**, and once the cap was hit it refused 227 later candidates
+regardless of value. A ₹96,000 invoice arriving late lost to a ₹400 order that
+arrived early. That is an allocation problem, not a budget problem.
+
+Three mechanisms now address it, and they were not equally useful -- which is
+worth saying, because the one I expected to matter most mattered least.
+
+**1. Shadow-price governor (`recoup/budget.py`).** After diagnosis, every
+order's action ladder is projected, sorted by expected-value density, and funded
+greedily until the budget is exhausted. The density of the marginal item is the
+budget's shadow price λ; paid actions must clear it. Free retries are never
+rationed. Two modelling errors on the way: projecting only each order's
+*best-density* action always picks the cheapest rung (₹26 projected demand
+against ₹5,000 actual), and ignoring that comms rungs repeat left λ too low to
+ration anything mid-range.
+
+**2. Concentration cap -- the one that actually fixed it.** Recovery was
+**non-monotonic in budget**: ₹500 recovered 172 orders, ₹2,000 recovered 134.
+At ₹500 the agent cannot afford ₹150 human collection calls so it buys ~512
+cheap contacts; at ₹2,000 it can afford ~13 calls, which eat the budget and
+crowd out hundreds of ₹0.05–₹0.80 messages that between them recover far more.
+More money bought less recovery. `budget.max_share_per_action_type: 0.35` caps
+any single action type's share of the batch. Recovery became monotonic and
+saturating (₹500→177, ₹1,000→181, flat thereafter), lift recovered from 12.9pp
+to 21.9pp, and spend now self-limits at ₹3,276 even when ₹8,000 is available.
+
+**3. Uplift as the objective.** With the cap in place the governor adds little
+on this corpus and at a tight budget slightly *over*-rations (172 vs 177 at
+₹500). Reported rather than hidden: the cheap structural fix did the work, the
+sophisticated one is insurance for genuinely scarce budgets.
+
+## Response vs uplift: optimising the thing you are scored on
+
+The agent originally maximised `P(recover | action) × amount`. That is the wrong
+objective and the priors made it obviously wrong: under response, ISSUER_DOWN
+WhatsApp scores **0.732** while CARD_EXPIRED voice scores **0.349** — so the
+agent prefers messaging customers whose issuer outage is about to clear over
+calling customers whose card is dead. It was chasing recovery that was already
+coming.
+
+Uplift fixes the ordering (0.034 vs 0.322) and is the same quantity the holdout
+measures, so the agent now optimises exactly what it is scored on. Estimating it
+required a **control arm** in calibration — 20% of calibration orders get no
+action, giving the organic recovery rate per class.
+
+Two methodological bugs had to be fixed before the estimates were usable, and
+both produced *arithmetically impossible* negative uplift on transient classes,
+which is what gave them away — recovery is `self-heal OR action`, so response
+cannot be below control:
+
+*   **Systematic sampling.** Control assignment was `i % 5 == 0` on a list
+    sorted by creation time. That is not randomization, and it interacts with
+    the time-localised injected outages, so the arms had different failure mixes.
+    Now assigned by hash, like the main holdout.
+*   **Differential selection.** The treatment arm skipped orders whose organic
+    recovery had already landed before the action time. It looked like hygiene;
+    it dropped fast self-healers from treatment while control kept them, which
+    hit fast-healing classes like ISSUER_DOWN hardest. Both arms now score the
+    same population on the same rule.
+
+With both fixed, every uplift is positive and the structure matches theory:
+CARD_EXPIRED (organic 0.028) has uplift 0.32, ISSUER_DOWN (organic 0.698) has
+uplift 0.03–0.08. Spend where intervening changes the outcome.
 
 ## Findings from the live Razorpay integration
 

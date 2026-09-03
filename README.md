@@ -49,6 +49,33 @@ Two numbers worth noting because they cut against the pitch:
 - On a *clean* corpus the model contributes only **+3.3pp**, and if every failure carried
   a trustworthy `error_reason` it would contribute nothing at all. See the ablation below.
 
+### Spend where intervening changes the outcome
+
+The agent maximises **uplift**, not raw recovery: `[P(recover | action) −
+P(recover | nothing)] × amount`. That is the same quantity the holdout measures,
+so the agent optimises exactly what it is scored on.
+
+It matters because raw response is dominated by orders that were going to
+recover anyway. Measured on a control arm during calibration:
+
+| class | organic recovery | best action | response | **uplift** |
+|---|---:|---|---:|---:|
+| `ISSUER_DOWN` | 0.698 | WhatsApp | 0.732 | **0.034** |
+| `CARD_EXPIRED` | 0.028 | voice call | 0.349 | **0.322** |
+| `MANDATE_REVOKED` | 0.031 | re-auth link | 0.308 | **0.277** |
+
+Ranked by response the agent prefers messaging a customer whose issuer outage is
+about to clear (0.732) over calling one whose card is dead (0.349) — precisely
+backwards. Ranked by uplift it gets it right.
+
+Two allocation controls back it up. A **shadow-price governor** solves a greedy
+knapsack over the projected action ladder and rations by expected-value density;
+a **concentration cap** stops any one action type consuming more than 35% of the
+batch. The second mattered far more than the first, and that is worth saying:
+recovery used to be *non-monotonic in budget* — ₹500 recovered 172 orders while
+₹2,000 recovered 134, because ₹150 human calls crowded out ~350 cheap messages
+that recovered more between them. `make budget-sweep` shows the frontier.
+
 ### Does the LLM actually earn its place?
 
 The most useful experiment here. Same seed, same policy, same executor — the only variable
