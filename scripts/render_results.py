@@ -121,6 +121,15 @@ def main(report_path: str = "artifacts/report.json", out: str = "RESULTS.md") ->
     for tier, v in sorted(g["by_tier"].items()):
         w(f"| `{tier}` | {v['n']} | {v['accuracy']} |")
     w("")
+    if g.get("by_arm"):
+        w("Accuracy **per arm**, on the same rows — this is the mechanism behind the")
+        w("agent's recovery advantage, and leaving it out of an earlier version of this")
+        w("report made arm C's lift look unexplained:\n")
+        w("| arm | n | diagnosis accuracy |\n|---|---:|---:|")
+        for arm_name, v in sorted(g["by_arm"].items()):
+            w(f"| `{arm_name}` | {v['n']} | {v['overall_accuracy']} |")
+        w("")
+
     ts = g.get("tier_split", {})
     if ts:
         w(f"Routing: {ts.get('deterministic',0)} resolved by lookup, {ts.get('llm',0)} sent to the "
@@ -144,6 +153,47 @@ def main(report_path: str = "artifacts/report.json", out: str = "RESULTS.md") ->
         w(f"| `{reason}` | {v['orders']} | {inr(v['value_inr'])} |")
     w(f"\nPlus {len(r['exceptions']['human_review_queue'])} orders parked for human approval "
       f"(above the autonomous limit, or flagged in dispute / legal hold).\n")
+
+    # --- ablation: does the model earn its place? -------------------------
+    clean_path = os.path.join(os.path.dirname(report_path), "report_clean.json")
+    if os.path.exists(clean_path):
+        with open(clean_path) as fh:
+            rc = json.load(fh)
+        ca = {a["arm"]: a for a in rc["arms"]}
+        w("## Ablation — does the model earn its place?\n")
+        w("The most useful experiment in the project. Same seed, same policy, same")
+        w("executor; the only difference is how messy the error fields are.\n")
+        w("On a **clean** corpus every failure is fully determined by its structured")
+        w("`error_reason`, so a dict lookup resolves everything and the model is dead")
+        w("weight. On a **noisy** corpus — 35% of orders with dropped, vendor-specific or")
+        w("misattributed fields, cause still recoverable from the free-text description —")
+        w("the lookup table degrades and the model does not.\n")
+        w("| | clean corpus | noisy corpus (default) |")
+        w("|---|---:|---:|")
+        gc, gn = rc["diagnosis"], r["diagnosis"]
+        w(f"| deterministic tier resolves | {gc['by_tier'].get('deterministic',{}).get('n','—')} orders "
+          f"| {gn['by_tier'].get('deterministic',{}).get('n','—')} orders |")
+        w(f"| routed to the model | {gc['by_tier'].get('llm',{}).get('n','—')} orders "
+          f"| {gn['by_tier'].get('llm',{}).get('n','—')} orders |")
+        w(f"| diagnosis accuracy | {gc['overall_accuracy']} | {gn['overall_accuracy']} |")
+        for label, key in (("rules-only lift", "B_RULES"), ("agent lift", "C_AGENT")):
+            cv = ca.get(key, {}).get("incremental", {}).get("lift_pp")
+            nv = arms.get(key, {}).get("incremental", {}).get("lift_pp")
+            w(f"| {label} | {cv:+.1f}pp | {nv:+.1f}pp |")
+        cb, cc_ = ca.get("B_RULES"), ca.get("C_AGENT")
+        nb, nc_ = arms.get("B_RULES"), arms.get("C_AGENT")
+        if cb and cc_ and nb and nc_:
+            cd = cc_["incremental"]["lift_pp"] - cb["incremental"]["lift_pp"]
+            nd = nc_["incremental"]["lift_pp"] - nb["incremental"]["lift_pp"]
+            cdi = cc_["incremental"]["inr"] - cb["incremental"]["inr"]
+            ndi = nc_["incremental"]["inr"] - nb["incremental"]["inr"]
+            w(f"| **model contribution (C − B)** | **{cd:+.1f}pp / {inr(cdi)}** "
+              f"| **{nd:+.1f}pp / {inr(ndi)}** |")
+        w("")
+        w("So the answer is conditional, and worth stating plainly: **on tidy data the")
+        w("model is not worth its latency or its cost. It earns its place precisely where")
+        w("the structured fields stop being trustworthy** — which is what production data")
+        w("looks like.\n")
 
     with open(out, "w") as fh:
         fh.write("\n".join(L) + "\n")

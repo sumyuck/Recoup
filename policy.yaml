@@ -87,7 +87,11 @@ stopping:
   # A promise-to-pay freezes the entire sequence until the promised date.
   promise_to_pay_pauses_sequence: true
   promise_to_pay_grace_days: 3
-  max_actions_per_order: 5
+  # Raised from 5. With money actions repeatable up to the retry cap and comms
+  # repeatable twice, a full ladder on a high-value invoice is legitimately
+  # 6-8 actions spread over weeks. The binding constraints on intrusiveness are
+  # the contact frequency caps and the economic stop, not this number.
+  max_actions_per_order: 8
   max_sequence_age_days: 21
   # Economic stop: if the expected value of the next action is below its cost,
   # stop. This is what prevents the agent from harassing low-value orders.

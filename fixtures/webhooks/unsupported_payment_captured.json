@@ -1,0 +1,8 @@
+{
+  "entity": "event",
+  "account_id": "acc_MvQx1TjXyzABCD",
+  "event": "payment.captured",
+  "contains": ["payment"],
+  "payload": {"payment": {"entity": {"id": "pay_ok123", "amount": 10000, "status": "captured"}}},
+  "created_at": 1788350000
+}

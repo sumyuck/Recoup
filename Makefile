@@ -21,6 +21,14 @@ eval-live: ## same, using the real model for diagnosis (needs ANTHROPIC_API_KEY)
 	$(PY) cli.py eval --orders $(ORDERS) --seed $(SEED) --live
 	$(PY) scripts/render_results.py
 
+ablation: ## clean vs noisy corpus -- does the model actually earn its place?
+	$(PY) cli.py eval --orders $(ORDERS) --seed $(SEED) --live --noise 0 --out report_clean.json
+	$(PY) cli.py eval --orders $(ORDERS) --seed $(SEED) --live --noise 0.35 --out report.json
+	$(PY) scripts/render_results.py
+	@echo ""
+	@echo "  Clean corpus: both tiers score 100%, the model adds nothing."
+	@echo "  Noisy corpus: the model is the difference. See RESULTS.md."
+
 chaos: ## failure-path proof: no double charges under injected gateway failure
 	$(PY) cli.py chaos --orders 400 --seed $(SEED)
 

@@ -81,6 +81,16 @@ class RazorpayTestClient:
                     "Recoup sends payment links and creates orders; it must never "
                     "touch a live merchant account."
                 )
+            # The placeholder from .env.example passes the rzp_test_ check, and
+            # left in place it produces a few hundred 401s that look like a
+            # broken integration rather than an unset variable. Fail fast and
+            # say which it is.
+            if "xxxx" in self.key_id.lower() or "xxxx" in self.key_secret.lower():
+                raise RuntimeError(
+                    "RAZORPAY_KEY_ID/SECRET still hold the .env.example placeholder "
+                    "values. Either put real rzp_test_ keys in .env, or set "
+                    "RECOUP_LIVE_RAZORPAY=0 to run in shadow mode."
+                )
             self._client = httpx.Client(
                 base_url=BASE, auth=(self.key_id, self.key_secret), timeout=timeout
             )

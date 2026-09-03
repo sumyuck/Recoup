@@ -23,6 +23,7 @@ policy.
 from __future__ import annotations
 
 import heapq
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
@@ -45,6 +46,11 @@ from .policy import PolicyEngine, Proposal, classify_denial
 from .simulate import World
 
 I = Intervention
+
+# A comms action may be repeated at most twice; real dunning ladders do use a
+# second touch on the same channel days later, but a third is harassment and the
+# measured response decay makes it worthless anyway.
+MAX_REPEATS_PER_COMMS_ACTION = 2
 
 ARM_A = "A_BASELINE"
 ARM_B = "B_RULES"
@@ -86,6 +92,7 @@ class RunResult:
     wall_seconds: float = 0.0
     razorpay_stats: Dict = field(default_factory=dict)
     voice_stats: Dict = field(default_factory=dict)
+    diagnosis_timing: Dict = field(default_factory=dict)
 
 
 class Orchestrator:
@@ -102,7 +109,10 @@ class Orchestrator:
         razorpay=None,
         voice: Optional[VoiceProvider] = None,
         merchant_name: str = "Kirana Kart",
+        diagnose_workers: int = 12,
     ):
+        self.diagnose_workers = diagnose_workers
+        self.diagnosis_timing: Dict = {}
         self.batch = batch
         self.voice = voice
         self.merchant_name = merchant_name
@@ -154,6 +164,22 @@ class Orchestrator:
                 scheduled_for=now,
             ), []
 
+        # How many times may each action be repeated?
+        #
+        # The first version refused to repeat ANY action, which quietly wasted
+        # the retry budget: `policy.yaml` permits 3 charge attempts with
+        # exponential backoff and payday-aware scheduling, but the orchestrator
+        # would only ever fire one. A second retry timed to land after salary
+        # credit is a materially different action from the first, not a repeat
+        # -- 239 candidate rejections worth Rs4.1L were this bug.
+        #
+        # Comms are different: the same SMS twice in an hour is spam. So repeats
+        # are allowed but capped per action, and the contact frequency rules in
+        # the gate plus the simulator's response decay govern whether a second
+        # touch is worth anything.
+        money_cap = self.policy.cfg["retries"]["max_attempts_per_order"]
+        used = Counter(st.actions)
+
         candidates = self.policy.candidates(cls)
         if not candidates:
             return None, [{"intervention": None, "allowed": False,
@@ -162,13 +188,22 @@ class Orchestrator:
 
         scored: List[Tuple[float, Proposal]] = []
         for iv in candidates:
-            if iv.value in st.actions:
-                trace.append({"intervention": iv.value, "allowed": False,
-                              "denial_rule": "orchestrator.already_attempted",
-                              "denial_detail": "this rung of the ladder was already used"})
-                continue                          # don't repeat an action
+            is_money = iv in (I.RETRY_NOW, I.RETRY_SCHEDULED, I.MANDATE_REPRESENT)
+            repeat_cap = money_cap if is_money else MAX_REPEATS_PER_COMMS_ACTION
+            if used[iv.value] >= repeat_cap:
+                trace.append({
+                    "intervention": iv.value, "allowed": False,
+                    "denial_rule": "orchestrator.repeat_cap",
+                    "denial_detail": f"already used {used[iv.value]}x (cap {repeat_cap} for "
+                                     f"{'money' if is_money else 'comms'} actions)",
+                })
+                continue
             p = self.policy.prior(cls, iv)
             sched = now
+            if used[iv.value] > 0 and not is_money:
+                # A second touch on the same channel waits for the frequency
+                # window to clear rather than stacking on the first.
+                sched = max(now, self.policy.earliest_retry_time(order.customer_id, now))
             if iv in (I.RETRY_SCHEDULED, I.MANDATE_REPRESENT):
                 payday = cls in (
                     FailureClass.INSUFFICIENT_FUNDS,
@@ -211,8 +246,63 @@ class Orchestrator:
         scored.sort(key=lambda t: -t[0])
         return scored[0][1], trace
 
+    def _diagnose_all(self, order_ids: List[str]) -> None:
+        """Diagnose every treated order concurrently, then log deterministically."""
+        import time as _t
+        from concurrent.futures import ThreadPoolExecutor
+
+        results: Dict[str, Diagnosis] = {}
+        latencies: Dict[str, float] = {}
+
+        def one(oid: str):
+            t0 = _t.perf_counter()
+            d = self.diagnoser.diagnose(self.register[oid])
+            return oid, d, (_t.perf_counter() - t0) * 1000.0
+
+        t0 = _t.perf_counter()
+        # Modest pool: enough to hide network latency, small enough not to trip
+        # provider rate limits on a 450-call batch.
+        with ThreadPoolExecutor(max_workers=self.diagnose_workers) as pool:
+            for oid, d, ms in pool.map(one, order_ids):
+                results[oid] = d
+                latencies[oid] = ms
+        wall = _t.perf_counter() - t0
+
+        cust_of = {o.order_id: o.customer_id for o in self.batch.orders}
+        # Sorted, so the ledger does not depend on thread completion order.
+        for oid in sorted(results):
+            d = results[oid]
+            self.diagnoses[oid] = d
+            self.ledger.append(
+                EventType.DIAGNOSIS, Actor.DIAGNOSER,
+                order_id=oid, customer_id=cust_of.get(oid),
+                arm=self.arm, model_version=d.model_version,
+                prompt_hash=d.prompt_hash, cost_inr=d.cost_inr,
+                payload={
+                    "failure_class": d.failure_class.value,
+                    "confidence": d.confidence,
+                    "tier": d.tier,
+                    "evidence": d.evidence,
+                    "reasoning": d.reasoning,
+                    "fallback_reason": d.fallback_reason,
+                    "latency_ms": round(latencies[oid], 1),
+                },
+            )
+
+        vals = sorted(latencies.values())
+        if vals:
+            self.diagnosis_timing = {
+                "orders": len(vals),
+                "wall_seconds": round(wall, 2),
+                "throughput_per_second": round(len(vals) / wall, 1) if wall > 0 else None,
+                "workers": self.diagnose_workers,
+                "p50_ms": round(vals[len(vals) // 2], 1),
+                "p95_ms": round(vals[int(len(vals) * 0.95)], 1),
+                "max_ms": round(vals[-1], 1),
+            }
+
     # -- the run -------------------------------------------------------------
-    def run(self, max_steps_per_order: int = 6) -> RunResult:
+    def run(self, max_steps_per_order: int = 10) -> RunResult:
         import time as _time
 
         t0 = _time.perf_counter()
@@ -253,6 +343,30 @@ class Orchestrator:
                 treated.append(o.order_id)
                 tiebreak += 1
                 heapq.heappush(queue, (now0, tiebreak, o.order_id))
+
+        # --- diagnosis pass, concurrent -------------------------------------
+        # Diagnosis is per-order independent and network-bound, so running it
+        # inside the event loop meant ~450 sequential API calls and a 15-minute
+        # batch. Running it as a concurrent pre-pass cuts that to well under a
+        # minute, and throughput is part of what this system claims.
+        #
+        # Results are collected into a dict and logged in sorted order, so the
+        # ledger is identical across runs regardless of which thread finished
+        # first. Concurrency must not cost reproducibility.
+        if self.arm != ARM_A and self.diagnoser is not None:
+            # Skip orders whose organic recovery has already landed by batch
+            # start. The lazy in-loop path got this for free; the pre-pass has
+            # to filter explicitly, or parallelising would quietly start paying
+            # the model to diagnose orders that were already resolved.
+            to_diagnose = [
+                oid for oid in treated
+                if not (
+                    (h := self.world.self_heal_at(
+                        self.states[oid].order, self.states[oid].order.created_at)) is not None
+                    and h <= now0
+                )
+            ]
+            self._diagnose_all(to_diagnose)
 
         # --- holdout: observe only, never touch ----------------------------
         # This arm exists to measure the counterfactual. Nothing is executed,
@@ -322,24 +436,12 @@ class Orchestrator:
                         reasoning="baseline arm performs no diagnosis",
                     )
                 else:
-                    facts = self.register[oid]
-                    st.diagnosis = self.diagnoser.diagnose(facts)
+                    # Filled by the concurrent pre-pass; only computed here if
+                    # an order somehow reaches the loop without one.
+                    st.diagnosis = self.diagnoses.get(oid) or self.diagnoser.diagnose(
+                        self.register[oid]
+                    )
                 self.diagnoses[oid] = st.diagnosis
-                d = st.diagnosis
-                self.ledger.append(
-                    EventType.DIAGNOSIS, Actor.DIAGNOSER,
-                    order_id=oid, customer_id=order.customer_id, arm=self.arm,
-                    model_version=d.model_version, prompt_hash=d.prompt_hash,
-                    cost_inr=d.cost_inr,
-                    payload={
-                        "failure_class": d.failure_class.value,
-                        "confidence": d.confidence,
-                        "tier": d.tier,
-                        "evidence": d.evidence,
-                        "reasoning": d.reasoning,
-                        "fallback_reason": d.fallback_reason,
-                    },
-                )
 
             cls = st.diagnosis.failure_class
             st.step += 1
@@ -640,5 +742,6 @@ class Orchestrator:
             holdout_ids=holdout,
             treated_ids=treated,
             human_queue=self.human_queue,
+            diagnosis_timing=self.diagnosis_timing,
             wall_seconds=_time.perf_counter() - t0,
         )

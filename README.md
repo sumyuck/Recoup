@@ -18,33 +18,57 @@ Then it does the part most recovery demos skip: it measures itself against a
 
 Almost any dunning system can report a big number:
 
-> "We recovered 49% of failed payments."
+> "We recovered 48% of failed payments."
 
-That number is mostly not the system's work. In this corpus **23% of failed payments
-recover on their own** — an issuer outage ends, a salary lands, a customer retries
+That number is mostly not the system's work. In this corpus **116 of 500 failed payments
+(23%) recover on their own** — an issuer outage ends, a salary lands, a customer retries
 unprompted. A system that touches everything gets to claim all of it.
 
-So 20% of orders are deliberately assigned to a holdout and **never contacted at all**.
-The only number Recoup claims is the difference:
+So 20% of orders are deliberately assigned to a stratified holdout and **never contacted
+at all**. The only number Recoup claims is the difference:
 
 | | value |
 |---|---|
-| Treated recovery rate | **49.2%** |
-| Holdout recovery rate (agent off) | **19.0%** |
-| **Incremental lift** | **+30.2pp** (95% CI +20.8 to +39.2) |
-| **Incremental recovered** | **₹11,30,798** |
-| Cost per ₹100 recovered | **₹0.285** |
-| Lift over a naive retry schedule | **+19.2pp** / ₹8,72,528 |
-| Share of the addressable ceiling captured | **62%** |
+| Treated recovery rate | **47.6%** |
+| Holdout recovery rate (agent off) | **23.2%** |
+| **Incremental lift** | **+24.4pp** (95% CI +14.8 to +33.4) |
+| **Incremental recovered** | **₹10,30,972** |
+| Cost per ₹100 recovered | **₹0.495** |
+| Lift over the retry schedule a merchant already runs | **+19.7pp** / ₹6,99,355 |
+| Share of the addressable ceiling captured | **49%** |
 
-Full generated numbers: **[RESULTS.md](RESULTS.md)** — every figure is rendered from the
-run that produced it, so the docs cannot drift from the code.
+Measured with `claude-sonnet-5` doing diagnosis, on a 500-order corpus with 35% field
+noise. Full generated numbers: **[RESULTS.md](RESULTS.md)** — every figure is rendered
+from the run that produced it, so the docs cannot drift from the code.
 
-> **Current caveat, stated up front:** the committed run uses the offline **stub**
-> diagnoser, so arm C is identical to arm B and the LLM's contribution is *not* yet
-> measured. Set `ANTHROPIC_API_KEY` and run `make eval-live` to measure it. The stub
-> establishes the floor the model has to beat: **78% accuracy on the ambiguous slice**
-> that the deterministic tier cannot resolve.
+Two numbers worth noting because they cut against the pitch:
+
+- The naive retry baseline's apparent lift (**+4.7pp**) is **not statistically
+  significant** — its 95% CI is −4.6 to +13.2. The report says so rather than quoting the
+  point estimate.
+- On a *clean* corpus the model contributes only **+3.3pp**, and if every failure carried
+  a trustworthy `error_reason` it would contribute nothing at all. See the ablation below.
+
+### Does the LLM actually earn its place?
+
+The most useful experiment here. Same seed, same policy, same executor — the only variable
+is how messy the error fields are.
+
+| | clean corpus | noisy corpus (default) |
+|---|---:|---:|
+| deterministic tier resolves | 207 orders | 144 orders |
+| routed to the model | 123 orders | 183 orders |
+| **rules-only** diagnosis accuracy | 93.6% | **69.1%** |
+| **agent** diagnosis accuracy | 100% | **99.7%** |
+| rules-only lift | +22.4pp | +18.9pp |
+| agent lift | +25.6pp | +24.4pp |
+| **model contribution (C − B)** | **+3.3pp / ₹23,708** | **+5.5pp / ₹68,316** |
+
+The answer is conditional, and I would rather say it than hide it: **on tidy data the
+model is not worth its latency or its cost. It earns its place precisely where the
+structured fields stop being trustworthy** — dropped `error_reason`, vendor codes in no
+taxonomy, `error_source` misattributed during an incident — which is what production
+payment data actually looks like. `make ablation` reproduces both columns.
 
 ---
 
@@ -58,16 +82,24 @@ make serve                    # dashboard on http://localhost:8000
 ```
 
 No keys needed. Without them the pipeline runs fully offline: diagnosis uses the
-deterministic stub and Razorpay calls run in shadow mode, logging the exact request
-they would have sent.
+deterministic stub and Razorpay calls run in shadow mode, logging the exact request they
+would have sent. With `ANTHROPIC_API_KEY` set, `make eval-live` measures the model.
 
 ```bash
 make eval          # all three arms + report.json + RESULTS.md
 make eval-live     # same, with the real model doing diagnosis
+make ablation      # clean vs noisy corpus: does the model earn its place?
 make chaos         # failure-path proof: no double charges under gateway failure
 make verify        # verify the ledger hash chain
-python cli.py trace order_<id>    # one order's full decision trail
+python cli.py trace order_<id>          # one order's full decision trail
+python cli.py ingest                    # POST signed Razorpay webhook fixtures
+python cli.py replay                    # run ingested webhooks through the pipeline
 ```
+
+Diagnosis runs as a concurrent pre-pass (12 workers), so a 500-order live batch takes
+**~40 seconds** rather than the 15 minutes it took sequentially. Results are logged in
+sorted order so the ledger stays identical across runs — concurrency must not cost
+reproducibility.
 
 ---
 
@@ -196,6 +228,33 @@ Three things in [`recoup/channels/voice.py`](recoup/channels/voice.py) are load-
 
 ---
 
+## Real Razorpay webhook ingestion
+
+The evaluation runs on a generated corpus because measuring lift needs ground truth and a
+holdout. But the pipeline also consumes the real thing — `POST /webhooks/razorpay` accepts
+actual Razorpay event payloads and maps them onto the same domain model:
+
+`payment.failed` · `subscription.charged` · `subscription.halted` · `payment_link.expired`
+· `invoice.expired`
+
+- **HMAC-SHA256 signature verification** against the *raw* request body, constant-time.
+  Re-serialising the JSON would change key order and break every signature.
+- **Replay protection** on `x-razorpay-event-id`, because Razorpay retries deliveries.
+- **Paise → rupees**, issuer extracted from the method-specific location (card issuer,
+  bank code, or UPI VPA suffix), and customer identity hashed from contact/email when no
+  `customer_id` is sent — so PII does not become a primary key smeared across the ledger.
+- Webhook payloads are **data, never instruction**: `notes` and `description` are
+  merchant-controlled free text that reaches the diagnosis prompt as a JSON value, and the
+  model's output is schema-validated against a closed taxonomy, so text arriving here
+  cannot widen what the agent can do.
+
+Seven fixtures in [`fixtures/webhooks/`](fixtures/webhooks/) cover all five events plus a
+tampered signature and an unsupported event type. `python cli.py replay` runs them through
+detection and diagnosis and prints the decisions — no lift is reported, because real
+events have no holdout and no counterfactual, and inventing one would be dishonest.
+
+---
+
 ## Honest limitations
 
 The things I would attack first, and the places this would not survive contact with
@@ -220,9 +279,13 @@ production:
 4. **`NO_ELIGIBLE_ACTION` is still the largest exception bucket** (~₹7.3L). Some is
    correct — risk-blocked orders, exhausted contact budgets — but not all of it, and I
    have not driven it down.
-5. **The LLM's contribution is unmeasured in the committed run.** Stub mode makes arm C
-   ≡ arm B. Until `make eval-live` runs, "the AI adds value" is a hypothesis with a
-   floor (78% on the ambiguous slice), not a finding.
+5. **I corrected the diagnosis prompt after seeing its errors on this corpus.** The first
+   live run scored 63.8% on the ambiguous slice — *worse* than the deterministic fallback
+   — and the confusion matrix showed all 43 errors were two pairs my prompt had actively
+   mis-instructed. The discriminators I added (`error_source` splitting
+   `insufficient_funds`; `gateway_technical_error` being issuer-side) are genuine Razorpay
+   semantics, not corpus artefacts — but the fitting loop was mine, and a prompt tuned
+   against my own generator is a weaker claim than one validated on held-out real data.
 6. **Simulated customer responses, real Razorpay calls.** Payment links and orders are
    genuine test-mode API requests; whether a customer *pays* is simulated. Conversion
    numbers are not field-validated.
@@ -249,5 +312,9 @@ production:
 | `recoup/ledger.py` | append-only hash-chained ledger |
 | `recoup/channels/voice.py` | Hinglish voice tier + compliance |
 | `recoup/channels/razorpay_api.py` | Razorpay test-mode client (test-key enforced) |
+| `recoup/webhooks.py` | real Razorpay webhook ingestion, signed + replay-protected |
+| `fixtures/webhooks/` | seven real-shaped Razorpay event payloads |
 | `scripts/calibrate.py` | learns action priors from a separate batch |
 | `scripts/render_results.py` | regenerates RESULTS.md from report.json |
+| `PITCH.md` | 5-minute video script and expected panel questions |
+| `SUBMISSION.md` | submission form answers and pre-submit checklist |

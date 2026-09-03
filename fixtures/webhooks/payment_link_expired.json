@@ -1,0 +1,25 @@
+{
+  "entity": "event",
+  "account_id": "acc_MvQx1TjXyzABCD",
+  "event": "payment_link.expired",
+  "contains": ["payment_link"],
+  "payload": {
+    "payment_link": {
+      "entity": {
+        "id": "plink_TuV4wX5yZ6aB7c",
+        "entity": "payment_link",
+        "reference_id": "order_TuV4wX5yZ6aB70",
+        "amount": 156000,
+        "amount_paid": 0,
+        "currency": "INR",
+        "status": "expired",
+        "description": "Complete your payment via UPI",
+        "customer": {"name": "A Nair", "email": "a.nair@example.com", "contact": "+919900112233"},
+        "created_at": 1788200000,
+        "expire_by": 1788286400,
+        "notes": {"recoup_intervention": "METHOD_SWITCH_LINK"}
+      }
+    }
+  },
+  "created_at": 1788286405
+}

@@ -20,6 +20,12 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 app = FastAPI(title="Recoup", docs_url="/api/docs")
 
+# Real Razorpay webhook ingestion. Mounted on the same app so the dashboard and
+# the ingest endpoint are one deployable.
+from .webhooks import router as webhook_router  # noqa: E402
+
+app.include_router(webhook_router)
+
 
 def _report() -> Dict:
     p = os.path.join(ART, "report.json")

@@ -1,0 +1,23 @@
+{
+  "entity": "event",
+  "account_id": "acc_MvQx1TjXyzABCD",
+  "event": "subscription.halted",
+  "contains": ["subscription"],
+  "payload": {
+    "subscription": {
+      "entity": {
+        "id": "sub_ZzY9xW8vU7tS6r",
+        "entity": "subscription",
+        "plan_id": "plan_ZzY9xW8vU7tS60",
+        "customer_id": "cust_ZzY9xW8vU7tS61",
+        "status": "halted",
+        "paid_count": 3,
+        "total_count": 24,
+        "charge_at": 1788330000,
+        "plan": {"item": {"amount": 129900, "currency": "INR", "name": "Business Annual"}},
+        "notes": {"segment": "smb"}
+      }
+    }
+  },
+  "created_at": 1788330020
+}

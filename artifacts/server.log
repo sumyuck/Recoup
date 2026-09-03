@@ -1,5 +1,11 @@
-INFO:     Started server process [1607]
+INFO:     Started server process [2552]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     127.0.0.1:49785 - "GET /api/orders HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50507 - "POST /webhooks/razorpay HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50508 - "POST /webhooks/razorpay HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50509 - "POST /webhooks/razorpay HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50510 - "POST /webhooks/razorpay HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50511 - "POST /webhooks/razorpay HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50512 - "POST /webhooks/razorpay HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50513 - "POST /webhooks/razorpay HTTP/1.1" 200 OK

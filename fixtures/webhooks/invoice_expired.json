@@ -1,0 +1,34 @@
+{
+  "entity": "event",
+  "account_id": "acc_MvQx1TjXyzABCD",
+  "event": "invoice.expired",
+  "contains": ["invoice"],
+  "payload": {
+    "invoice": {
+      "entity": {
+        "id": "inv_JkL2mN3oP4qR5s",
+        "entity": "invoice",
+        "invoice_number": "INV-2026-0418",
+        "customer_id": "cust_JkL2mN3oP4qR50",
+        "customer_details": {
+          "name": "Vertex Logistics Pvt Ltd",
+          "email": "accounts@vertexlog.example.com",
+          "contact": "+912233445566",
+          "gstin": "27AAECV1234F1Z5"
+        },
+        "order_id": "order_JkL2mN3oP4qR51",
+        "status": "expired",
+        "amount": 4850000,
+        "amount_paid": 0,
+        "amount_due": 4850000,
+        "currency": "INR",
+        "description": "Freight services - March 2026",
+        "issued_at": 1785600000,
+        "expire_by": 1788192000,
+        "date": 1785600000,
+        "notes": {"po_number": "PO-88213", "terms": "net 30"}
+      }
+    }
+  },
+  "created_at": 1788340000
+}

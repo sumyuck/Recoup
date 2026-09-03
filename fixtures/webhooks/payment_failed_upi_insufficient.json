@@ -1,0 +1,36 @@
+{
+  "entity": "event",
+  "account_id": "acc_MvQx1TjXyzABCD",
+  "event": "payment.failed",
+  "contains": ["payment"],
+  "payload": {
+    "payment": {
+      "entity": {
+        "id": "pay_AbC1dE2fG3hI4j",
+        "entity": "payment",
+        "amount": 89900,
+        "currency": "INR",
+        "status": "failed",
+        "order_id": "order_AbC1dE2fG3hI40",
+        "method": "upi",
+        "amount_refunded": 0,
+        "captured": false,
+        "description": "Grocery order",
+        "card": null,
+        "bank": null,
+        "vpa": "rsharma@okicici",
+        "email": "r.sharma@example.com",
+        "contact": "+919876543210",
+        "notes": {},
+        "error_code": "BAD_REQUEST_ERROR",
+        "error_description": "Your payment failed as the account balance is insufficient",
+        "error_source": "customer",
+        "error_step": "payment_authorization",
+        "error_reason": "insufficient_funds",
+        "acquirer_data": {"rrn": "429811223344", "gateway": "pg_beta"},
+        "created_at": 1788310000
+      }
+    }
+  },
+  "created_at": 1788310004
+}

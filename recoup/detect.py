@@ -469,7 +469,21 @@ def build_risk_register(
         derived_source = None
         derived_desc = None
         if a is None:
-            if o.kind.value == "B2B_INVOICE":
+            if o.kind.value == "SUBSCRIPTION":
+                # A subscription with no charge attempt on record means the
+                # mandate itself is gone -- Razorpay emits `subscription.halted`
+                # with no payment entity. Falling through to the generic
+                # "abandoned checkout" branch would send this customer a
+                # payment link, when what it actually needs is mandate
+                # re-authorization. Different playbook entirely.
+                derived_reason = "mandate_revoked"
+                derived_step = "payment_initiation"
+                derived_source = "customer"
+                derived_desc = (
+                    "Subscription has no active mandate and no charge attempt was made; "
+                    "autopay authorization must be re-established"
+                )
+            elif o.kind.value == "B2B_INVOICE":
                 overdue = ((now - o.due_at).total_seconds() / 86400.0) if o.due_at else 0.0
                 derived_reason = "invoice_overdue"
                 derived_step = "collection"

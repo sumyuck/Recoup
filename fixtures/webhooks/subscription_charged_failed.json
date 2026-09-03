@@ -1,0 +1,47 @@
+{
+  "entity": "event",
+  "account_id": "acc_MvQx1TjXyzABCD",
+  "event": "subscription.charged",
+  "contains": ["subscription", "payment"],
+  "payload": {
+    "subscription": {
+      "entity": {
+        "id": "sub_LmN5oP6qR7sT8u",
+        "entity": "subscription",
+        "plan_id": "plan_LmN5oP6qR7sT80",
+        "customer_id": "cust_LmN5oP6qR7sT81",
+        "status": "active",
+        "paid_count": 6,
+        "total_count": 12,
+        "charge_at": 1788320000,
+        "start_at": 1772000000,
+        "plan": {"item": {"amount": 49900, "currency": "INR", "name": "Pro Monthly"}},
+        "notes": {}
+      }
+    },
+    "payment": {
+      "entity": {
+        "id": "pay_LmN5oP6qR7sT82",
+        "entity": "payment",
+        "amount": 49900,
+        "currency": "INR",
+        "status": "failed",
+        "order_id": "order_LmN5oP6qR7sT83",
+        "method": "emandate",
+        "captured": false,
+        "description": "Pro Monthly renewal",
+        "bank": "ICIC",
+        "email": "team@acmeco.example.com",
+        "contact": "+919812345678",
+        "error_code": "BAD_REQUEST_ERROR",
+        "error_description": "Auto-debit bounced because the account balance was insufficient",
+        "error_source": "bank",
+        "error_step": "payment_authorization",
+        "error_reason": "insufficient_funds",
+        "acquirer_data": {"gateway": "pg_gamma"},
+        "created_at": 1788320010
+      }
+    }
+  },
+  "created_at": 1788320015
+}

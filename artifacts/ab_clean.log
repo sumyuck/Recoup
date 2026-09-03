@@ -1,0 +1,55 @@
+
+Recoup evaluation
+  corpus      500 orders, 202,023 traffic events, Rs3,227,468 at risk
+  holdout     20% randomized, stratified by (kind x failure class)
+  seed        20260903
+  ran A_BASELINE    0.6s   2525 ledger entries
+      diagnosis: 330 orders in 0.02s (18806.0/s, 12 workers) p50 0.0ms p95 0.9ms
+  ran B_RULES      22.4s   3108 ledger entries
+      diagnosis: 330 orders in 33.91s (9.7/s, 12 workers) p50 0.0ms p95 3586.1ms
+  ran C_AGENT      55.5s   3286 ledger entries  [diagnosis: live/claude-sonnet-5]
+
+  Recovery ceiling
+    total at risk                  Rs3,227,468
+    structurally unrecoverable       Rs357,927  (27 orders)
+    would self-heal anyway           Rs563,796  (121 orders)
+    addressable (the real pool)    Rs2,305,745  (352 orders)
+
+  arm            treated   holdout     lift           95% CI     incr Rs     spend      net Rs   Rs/100  sig
+  ------------------------------------------------------------------------------------------------------------
+  A_BASELINE       25.8%     25.7%    +0.1pp      [-9.3,+9.5]      80,210         0      80,210    0.000   NO
+  B_RULES          48.1%     25.7%   +22.4pp    [+12.4,+32.0]     651,993     5,000     646,993    0.767  yes
+  C_AGENT          51.4%     25.7%   +25.6pp    [+15.5,+35.3]     675,701     5,000     670,631    0.750  yes
+
+  Incremental value OVER the retry schedule a merchant already runs
+    B_RULES       +22.3pp vs baseline      Rs571,783 extra recovered   cost  Rs5,000   Rs0.874 per Rs100
+    C_AGENT       +25.6pp vs baseline      Rs595,491 extra recovered   cost  Rs5,070   Rs0.851 per Rs100
+
+  False-positive cost (what a raw recovery rate hides)
+    A_BASELINE   self-heal not claimed:  72   wasted contacts:   0   opt-outs:   0 (forward cost Rs0)   net after opt-out cost: Rs80,210
+    B_RULES      self-heal not claimed:  81   wasted contacts:  19   opt-outs:  13 (forward cost Rs2,682)   net after opt-out cost: Rs644,311
+    C_AGENT      self-heal not claimed:  81   wasted contacts:  19   opt-outs:  17 (forward cost Rs6,071)   net after opt-out cost: Rs664,560
+
+  Detection   injected 2  found 2  precision 1.0  recall 1.0  (shadows collapsed: 3, hypotheses tested: 3563)
+  Diagnosis   overall accuracy 1.0  (n=330)
+                deterministic  n= 207  accuracy=1.0
+                llm            n= 123  accuracy=1.0
+              per arm (same rows, different diagnosers):
+                A_BASELINE   accuracy=0.0  (none=0.0)
+                B_RULES      accuracy=0.9364  (deterministic=1.0, llm=0.8293)
+                C_AGENT      accuracy=1.0  (deterministic=1.0, llm=1.0)
+
+  Executor invariants
+    double charges                0   <- must be 0
+    duplicate charges prevented   0
+    ambiguous timeouts reconciled 0
+    dead-lettered                 0
+    breaker trips                 0
+
+  Exception list (unrecovered, by reason)
+    NO_ELIGIBLE_ACTION      159 orders     Rs945,543
+    HUMAN_ESCALATED          18 orders     Rs418,150
+    OPT_OUT                  17 orders      Rs41,003
+    human review queue       18 orders
+
+  full report -> artifacts/report_clean.json

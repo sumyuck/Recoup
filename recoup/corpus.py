@@ -61,6 +61,86 @@ REALISM_SCALE = 0.52
 # ledger ever is.
 B2B_UNCOLLECTABLE_SHARE = 0.18
 
+# ---------------------------------------------------------------------------
+# Field noise -- and why this exists.
+#
+# With a clean corpus, diagnosis hit 100% on BOTH tiers. That is not a good
+# result either: it means every failure is fully determined by its structured
+# `error_reason`, so the LLM is doing work a dict lookup already does, and
+# arm C can never beat arm B. The clean corpus cannot answer "does the model
+# add anything".
+#
+# Real payment failures are not that tidy. Gateways omit `error_reason`
+# entirely, return vendor-specific codes that are in nobody's taxonomy,
+# misattribute `error_source` during an incident, and put the only usable
+# signal in a free-text `error_description` written by whoever built the
+# integration. That is exactly the input a language model should beat a lookup
+# table on -- and if it doesn't, the honest answer is that the model isn't
+# earning its place.
+#
+# So `noise` degrades the structured fields while PRESERVING the truth in the
+# free text, and the two tiers are scored on the same rows.
+# ---------------------------------------------------------------------------
+
+# Vendor-specific codes that map to nothing in the deterministic taxonomy.
+VENDOR_CODES: Dict[FailureClass, List[str]] = {
+    FailureClass.ISSUER_DOWN: ["GW_5023", "ISSUER_UNAVAILABLE_RETRY", "BANK_DOWNTIME_02"],
+    FailureClass.GATEWAY_TIMEOUT: ["ETIMEDOUT_UPSTREAM", "GW_TIMEOUT_504"],
+    FailureClass.INSUFFICIENT_FUNDS: ["NPCI_U31", "DECLINE_51", "ACCT_BAL_LOW"],
+    FailureClass.AUTH_3DS_TIMEOUT: ["ACS_NO_RESPONSE", "3DS_ABANDON", "OTP_WINDOW_CLOSED"],
+    FailureClass.CARD_EXPIRED: ["DECLINE_54", "CARD_EXP_INVALID"],
+    FailureClass.DO_NOT_HONOR: ["DECLINE_05", "DNH_GENERIC"],
+    FailureClass.UPI_COLLECT_EXPIRED: ["NPCI_U69", "COLLECT_TTL_EXPIRED"],
+    FailureClass.MANDATE_REVOKED: ["MANDATE_NOT_FOUND", "NACH_REVOKED"],
+    FailureClass.MANDATE_INSUFFICIENT: ["NACH_RET_01", "ACH_R01"],
+    FailureClass.RISK_BLOCKED: ["RISK_HOLD_9", "FRM_BLOCK"],
+}
+
+# Free-text descriptions that carry the real cause in prose. This is the signal
+# a model can read and a lookup table cannot.
+NOISY_DESCRIPTIONS: Dict[FailureClass, List[str]] = {
+    FailureClass.ISSUER_DOWN: [
+        "issuer host unreachable during scheduled bank maintenance window, advise retry after some time",
+        "upstream bank switch returned no response for this BIN; multiple merchants affected",
+    ],
+    FailureClass.GATEWAY_TIMEOUT: [
+        "no response received from processor within configured socket timeout, txn state indeterminate",
+        "request abandoned after upstream read timeout; no auth code returned",
+    ],
+    FailureClass.INSUFFICIENT_FUNDS: [
+        "customer account did not have sufficient balance at time of debit; salary credit pending",
+        "available balance below txn amount, customer asked to fund account and retry",
+    ],
+    FailureClass.AUTH_3DS_TIMEOUT: [
+        "cardholder did not complete second factor on the issuer ACS page before it expired",
+        "customer closed the OTP screen without submitting, authentication incomplete",
+    ],
+    FailureClass.CARD_EXPIRED: [
+        "instrument validity period has elapsed, customer must supply a current card",
+        "stored credential is past its expiry date and cannot be charged",
+    ],
+    FailureClass.DO_NOT_HONOR: [
+        "issuer refused authorization without assigning a specific reason code",
+        "bank declined at their discretion, customer advised to contact card issuer",
+    ],
+    FailureClass.UPI_COLLECT_EXPIRED: [
+        "collect request lapsed before the payer approved it in their UPI application",
+        "payer never acted on the pending mandate request, request auto-cancelled",
+    ],
+    FailureClass.MANDATE_REVOKED: [
+        "no active debit authorization exists for this subscriber, mandate was cancelled earlier",
+        "standing instruction has been withdrawn by the account holder",
+    ],
+    FailureClass.MANDATE_INSUFFICIENT: [
+        "presentation against an active mandate was returned unpaid by the drawee bank for want of funds",
+        "auto debit on live standing instruction bounced at the bank for low balance",
+    ],
+    FailureClass.RISK_BLOCKED: [
+        "transaction stopped by internal fraud rules before reaching the network",
+        "blocked pre-authorization by risk engine, do not retry",
+    ],
+}
+
 ISSUERS = ["HDFC", "ICICI", "SBIN", "AXIS", "KOTAK", "PAYTM", "YESB", "IDFC"]
 ISSUER_WEIGHTS = [22, 18, 20, 12, 8, 7, 7, 6]
 GATEWAYS = ["pg_alpha", "pg_beta", "pg_gamma"]
@@ -405,6 +485,7 @@ def generate_batch(
     holdout_pct: int = 20,
     window_days: int = 14,
     traffic_per_hour: int = 600,
+    noise: float = 0.0,
     now: Optional[datetime] = None,
 ) -> Batch:
     rng = random.Random(seed)
@@ -511,6 +592,27 @@ def generate_batch(
             }[kind],
         )
 
+        # --- field noise -----------------------------------------------------
+        # Degrade the structured fields, keep the cause recoverable from prose.
+        noisy = rng.random() < noise
+        n_reason = prof.error_reason
+        n_source = prof.error_source
+        n_desc_pool = prof.descriptions
+        if noisy and fc in NOISY_DESCRIPTIONS:
+            mode = rng.choices(["drop", "vendor", "misattribute"], weights=[40, 40, 20], k=1)[0]
+            n_desc_pool = NOISY_DESCRIPTIONS[fc]
+            if mode == "drop":
+                # Gateway sent no machine-readable reason at all.
+                n_reason = None
+            elif mode == "vendor":
+                # A code from the acquirer's own namespace, in no taxonomy.
+                n_reason = rng.choice(VENDOR_CODES[fc])
+            else:
+                # Banks do misattribute during incidents: a real issuer outage
+                # reported as though the customer declined it.
+                n_reason = None
+                n_source = rng.choice(["gateway", "internal", "customer", "bank"])
+
         # 1..3 pre-existing organic attempts (not agent-initiated).
         n_attempts = 0 if fc in (FailureClass.CHECKOUT_ABANDONED, FailureClass.INVOICE_OVERDUE) else rng.choices([1, 2, 3], weights=[70, 22, 8])[0]
         for a in range(n_attempts):
@@ -524,10 +626,10 @@ def generate_batch(
                     gateway=gateway if method != "none" else None,
                     network=rng.choice(NETWORKS) if method == "card" else None,
                     error_code=prof.error_code or None,
-                    error_source=prof.error_source,
+                    error_source=n_source,
                     error_step=prof.error_step,
-                    error_reason=prof.error_reason,
-                    error_description=rng.choice(prof.descriptions),
+                    error_reason=n_reason,
+                    error_description=rng.choice(n_desc_pool),
                     was_agent_initiated=False,
                 )
             )

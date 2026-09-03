@@ -45,6 +45,36 @@ def _rate(recovered: int, n: int) -> float:
     return (recovered / n) if n else 0.0
 
 
+# How many future order cycles of recoverable revenue a permanent opt-out
+# destroys. An opt-out is not a one-off cost: that customer can never be
+# contacted for recovery again, on this order or any future one.
+#
+# This matters because without it, over-contacting is FREE in the accounting.
+# Allowing repeat touches lifted recovery from 49% to 55% -- and doubled
+# opt-outs from 18 to 34. A system that reports only the first number is
+# choosing not to look at the second.
+#
+# Priced conservatively: only the share of that customer's future failures that
+# dunning could have recovered, over a 12-month horizon -- not full lifetime
+# value, which would overstate it.
+OPT_OUT_HORIZON_CYCLES = 4          # ~quarterly purchase cadence
+OPT_OUT_RECOVERABLE_SHARE = 0.30    # share of future failures dunning wins back
+OPT_OUT_FAILURE_RATE = 0.07         # share of future orders that fail at all
+
+
+def opt_out_cost(orders_by_customer: Dict[str, List[float]], opted_out: List[str]) -> float:
+    """Estimated forward recoverable revenue destroyed by permanent opt-outs."""
+    total = 0.0
+    for cid in opted_out:
+        amts = orders_by_customer.get(cid) or []
+        if not amts:
+            continue
+        avg = sum(amts) / len(amts)
+        # future orders  x  share that fail  x  share dunning would have won back
+        total += avg * OPT_OUT_HORIZON_CYCLES * OPT_OUT_FAILURE_RATE * OPT_OUT_RECOVERABLE_SHARE
+    return round(total, 2)
+
+
 @dataclass
 class ArmMetrics:
     arm: str
@@ -64,6 +94,7 @@ class ArmMetrics:
     self_heal_credited: int          # recoveries the agent must NOT claim
     wasted_contacts: int             # contacts to orders that self-healed anyway
     opt_outs_caused: int
+    opt_out_cost_inr: float
     human_escalations: int
     # --- derived, filled by compute() ---
     lift_pp: float = 0.0
@@ -74,6 +105,7 @@ class ArmMetrics:
     incremental_inr_ci_low: float = 0.0
     incremental_inr_ci_high: float = 0.0
     net_value_inr: float = 0.0
+    net_value_after_optout_cost_inr: float = 0.0
     cost_per_100_recovered: Optional[float] = None
     pct_of_ceiling: Optional[float] = None
     significant: bool = False
@@ -110,6 +142,10 @@ class ArmMetrics:
                 "llm_cost_inr": round(self.llm_cost_inr, 4),
                 "total_cost_inr": round(self.spend_inr + self.llm_cost_inr, 2),
                 "net_value_inr": round(self.net_value_inr, 2),
+                # The number a merchant should actually optimise: incremental
+                # recovery minus spend minus the forward revenue destroyed by
+                # the opt-outs the campaign caused.
+                "net_value_after_optout_cost_inr": round(self.net_value_after_optout_cost_inr, 2),
                 "cost_per_100_recovered_inr": self.cost_per_100_recovered,
                 "actions_taken": self.actions_taken,
                 "contacts_made": self.contacts_made,
@@ -118,6 +154,7 @@ class ArmMetrics:
                 "self_heal_recoveries_not_claimed": self.self_heal_credited,
                 "wasted_contacts_to_self_healers": self.wasted_contacts,
                 "opt_outs_caused": self.opt_outs_caused,
+                "opt_out_forward_cost_inr": round(self.opt_out_cost_inr, 2),
                 "note": "customers contacted who would have paid anyway, and the "
                         "permanent opt-outs that resulted. This is the cost a "
                         "raw recovery rate hides.",
@@ -194,6 +231,16 @@ def compute_arm_metrics(
         1 for e in result.ledger.entries if e["event"] == "OPT_OUT"
     )
 
+    # Which customers were permanently lost, and what that costs going forward.
+    opted_out_ids = [
+        e["customer_id"] for e in result.ledger.entries
+        if e["event"] == "OPT_OUT" and e.get("customer_id")
+    ]
+    by_customer: Dict[str, List[float]] = {}
+    for o in batch.orders:
+        by_customer.setdefault(o.customer_id, []).append(o.amount_inr)
+    oo_cost = opt_out_cost(by_customer, opted_out_ids)
+
     llm_cost = float(result.diagnoser_stats.get("llm_cost_inr", 0.0) or 0.0)
 
     m = ArmMetrics(
@@ -213,6 +260,7 @@ def compute_arm_metrics(
         self_heal_credited=self_heal,
         wasted_contacts=wasted,
         opt_outs_caused=opt_outs,
+        opt_out_cost_inr=oo_cost,
         human_escalations=len(result.human_queue),
     )
 
@@ -233,6 +281,7 @@ def compute_arm_metrics(
 
     total_cost = m.spend_inr + m.llm_cost_inr
     m.net_value_inr = m.incremental_inr - total_cost
+    m.net_value_after_optout_cost_inr = m.net_value_inr - m.opt_out_cost_inr
     if m.incremental_inr > 0:
         m.cost_per_100_recovered = round(total_cost / (m.incremental_inr / 100.0), 4)
     if ceiling_value and ceiling_value > 0:

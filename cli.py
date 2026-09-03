@@ -49,7 +49,7 @@ def cmd_eval(args) -> None:
     os.makedirs(ART, exist_ok=True)
     mode = "live" if args.live else ("stub" if args.stub else "auto")
     batch = generate_batch(
-        n_orders=args.orders, seed=args.seed, holdout_pct=args.holdout
+        n_orders=args.orders, seed=args.seed, holdout_pct=args.holdout, noise=args.noise
     )
     world_for_ceiling = World(batch, seed=args.seed)
     ceiling = recovery_ceiling(batch, world_for_ceiling)
@@ -59,6 +59,9 @@ def cmd_eval(args) -> None:
           f"{_fmt_inr(batch.total_at_risk_inr)} at risk")
     print(f"  holdout     {args.holdout}% randomized, stratified by (kind x failure class)")
     print(f"  seed        {args.seed}")
+    if args.noise:
+        print(f"  field noise {args.noise:.0%} of orders have dropped / vendor-specific / "
+              f"misattributed error fields")
 
     arms = [ARM_A, ARM_B, ARM_C]
     metrics, results = [], {}
@@ -78,7 +81,15 @@ def cmd_eval(args) -> None:
         rzp = None
         if arm != ARM_A:
             # Shadow by default; RECOUP_LIVE_RAZORPAY=1 sends real test-mode calls.
-            rzp = RazorpayTestClient(log_path=os.path.join(ART, f"razorpay_{arm}.jsonl"))
+            # If live mode is requested but the keys are unusable, fall back to
+            # shadow with a loud message rather than aborting the evaluation --
+            # the measurement does not depend on the Razorpay leg.
+            try:
+                rzp = RazorpayTestClient(log_path=os.path.join(ART, f"razorpay_{arm}.jsonl"))
+            except RuntimeError as e:
+                print(f"  ! Razorpay live mode disabled: {e}")
+                rzp = RazorpayTestClient(live=False,
+                                         log_path=os.path.join(ART, f"razorpay_{arm}.jsonl"))
         o = Orchestrator(
             b, arm, POLICY, PRIORS if os.path.exists(PRIORS) else None,
             os.path.join(ART, f"ledger_{arm}.jsonl"),
@@ -89,6 +100,11 @@ def cmd_eval(args) -> None:
         o.executor.world = world
         r = o.run()
         r.razorpay_stats = rzp.stats if rzp else {}
+        if r.diagnosis_timing:
+            t = r.diagnosis_timing
+            print(f"      diagnosis: {t['orders']} orders in {t['wall_seconds']}s "
+                  f"({t['throughput_per_second']}/s, {t['workers']} workers) "
+                  f"p50 {t['p50_ms']}ms p95 {t['p95_ms']}ms")
         r.voice_stats = dict(o.voice.stats) if o.voice else {}
         results[arm] = r
         metrics.append(
@@ -105,6 +121,27 @@ def cmd_eval(args) -> None:
     det["coverage"] = rc.coverage
     diag = score_diagnosis(rc.diagnoses, batch.ground_truth)
     diag["tier_split"] = rc.diagnoser_stats
+
+    # Score EVERY arm's diagnoses, not just the agent's.
+    #
+    # This was a gap in my own reporting: the report showed only arm C's
+    # accuracy, which made it look as though both arms diagnosed identically
+    # and left arm C's recovery advantage unexplained. Arm B routes its
+    # ambiguous cases to the deterministic fallback, so its accuracy is a
+    # different number on the same rows -- and that difference is precisely the
+    # mechanism by which the model earns its lift.
+    diag["by_arm"] = {}
+    for arm_name, res in results.items():
+        # Arm A performs no diagnosis at all; scoring its placeholder UNKNOWNs
+        # would print a meaningless 0.0 next to two real numbers.
+        if not res.diagnoses or all(d.tier == "none" for d in res.diagnoses.values()):
+            continue
+        sc = score_diagnosis(res.diagnoses, batch.ground_truth)
+        diag["by_arm"][arm_name] = {
+            "n": sc["n"],
+            "overall_accuracy": sc["overall_accuracy"],
+            "by_tier": {t: v["accuracy"] for t, v in sc["by_tier"].items()},
+        }
 
     report = render_report(
         batch=batch,
@@ -127,9 +164,10 @@ def cmd_eval(args) -> None:
                          f"{' --live' if args.live else ''}",
             "razorpay": getattr(rc, "razorpay_stats", {}),
             "voice_calls_rendered": getattr(rc, "voice_stats", {}),
+            "diagnosis_timing": getattr(rc, "diagnosis_timing", {}),
         },
     )
-    out = os.path.join(ART, "report.json")
+    out = os.path.join(ART, args.out or "report.json")
     with open(out, "w") as fh:
         json.dump(report, fh, indent=2, default=str)
 
@@ -188,9 +226,11 @@ def _print_table(report: dict) -> None:
     print(f"\n  False-positive cost (what a raw recovery rate hides)")
     for a in report["arms"]:
         f = a["false_positive_cost"]
-        print(f"    {a['arm']:12s} self-heal recoveries not claimed: {f['self_heal_recoveries_not_claimed']:3d}   "
+        print(f"    {a['arm']:12s} self-heal not claimed: {f['self_heal_recoveries_not_claimed']:3d}   "
               f"wasted contacts: {f['wasted_contacts_to_self_healers']:3d}   "
-              f"opt-outs caused: {f['opt_outs_caused']:3d}")
+              f"opt-outs: {f['opt_outs_caused']:3d} "
+              f"(forward cost {_fmt_inr(f['opt_out_forward_cost_inr'])})   "
+              f"net after opt-out cost: {_fmt_inr(a['economics']['net_value_after_optout_cost_inr'])}")
 
     d = report["detection"]
     print(f"\n  Detection   injected {d['injected_outages']}  found {d['signals_raised']}  "
@@ -202,6 +242,11 @@ def _print_table(report: dict) -> None:
     print(f"  Diagnosis   overall accuracy {g['overall_accuracy']}  (n={g['n']})")
     for tier, v in sorted(g["by_tier"].items()):
         print(f"                {tier:14s} n={v['n']:4d}  accuracy={v['accuracy']}")
+    if g.get("by_arm"):
+        print(f"              per arm (same rows, different diagnosers):")
+        for arm_name, v in sorted(g["by_arm"].items()):
+            tiers = ", ".join(f"{t}={a}" for t, a in sorted(v["by_tier"].items()))
+            print(f"                {arm_name:12s} accuracy={v['overall_accuracy']}  ({tiers})")
 
     x = report["executor_invariants"]
     print(f"\n  Executor invariants")
@@ -283,6 +328,96 @@ def _idempotency_proof(args) -> None:
     print(f"    all three returned the identical outcome: {same}")
 
 
+def cmd_ingest(args) -> None:
+    """POST the webhook fixtures at a running server, correctly signed.
+
+    Exists so the ingest path can be exercised without waiting for Razorpay to
+    send a real event -- and so the signature, dedup and mapping behaviour is
+    demonstrable on camera.
+    """
+    import glob
+    import hashlib
+    import hmac
+
+    import httpx
+
+    secret = os.getenv("RAZORPAY_WEBHOOK_SECRET", "")
+    files = sorted(glob.glob(os.path.join(args.dir, "*.json")))
+    if not files:
+        print(f"no fixtures in {args.dir}")
+        return
+    print(f"\nPosting {len(files)} webhook fixtures to {args.url}")
+    print(f"  signing: {'HMAC-SHA256 with RAZORPAY_WEBHOOK_SECRET' if secret else 'NONE (secret not set)'}\n")
+    for i, f in enumerate(files):
+        raw = open(f, "rb").read()
+        headers = {"content-type": "application/json", "x-razorpay-event-id": f"evt_cli_{i}"}
+        if secret:
+            headers["x-razorpay-signature"] = hmac.new(
+                secret.encode(), raw, hashlib.sha256
+            ).hexdigest()
+        try:
+            r = httpx.post(args.url, content=raw, headers=headers, timeout=10)
+            j = r.json()
+            name = os.path.basename(f).replace(".json", "")
+            print(f"  {name:36s} {r.status_code} "
+                  f"{'accepted ' + str(j.get('order_id')) if j.get('accepted') else 'rejected: ' + str(j.get('reason') or j.get('detail'))}")
+        except Exception as e:
+            print(f"  {os.path.basename(f):36s} ERROR {type(e).__name__}: {e}")
+    print("\n  Server state: GET /webhooks/status")
+
+
+def cmd_replay(args) -> None:
+    """Run webhook-ingested orders through the full recovery pipeline.
+
+    This is the path a real deployment takes: events arrive, get mapped, and the
+    same detection/diagnosis/policy/executor stack runs on them. No holdout or
+    lift here -- real events have no ground truth and no counterfactual, so the
+    only honest output is the decision trail, not a recovery number.
+    """
+    import json as _json
+
+    from recoup.detect import build_risk_register
+    from recoup.ledger import Actor, EventType, Ledger
+    from recoup.models import Batch
+    from recoup.webhooks import STORE, map_event
+
+    if not os.path.exists(args.spool):
+        print(f"no spool at {args.spool} -- run 'cli.py ingest' against a live server first")
+        return
+    n = 0
+    with open(args.spool) as fh:
+        for line in fh:
+            if not line.strip():
+                continue
+            rec = _json.loads(line)
+            STORE.ingest(rec["body"], rec.get("event_id"))
+            n += 1
+    print(f"\nReplayed {n} spooled events -> {len(STORE.orders)} orders, "
+          f"{len(STORE.customers)} customers\n")
+
+    batch = Batch(
+        batch_id="webhook_replay",
+        generated_at=datetime.now(),
+        seed=0,
+        orders=list(STORE.orders.values()),
+        customers=STORE.customers,
+        ground_truth={},
+    )
+    register = build_risk_register(batch, [], now=datetime.now())
+    d = Diagnoser(mode="live" if args.live else "auto")
+    print(f"{'order':32s} {'kind':13s} {'amount':>12s} {'diagnosed':24s} {'tier':14s} conf")
+    print("-" * 104)
+    for oid, facts in register.items():
+        dg = d.diagnose(facts)
+        o = STORE.orders[oid]
+        print(f"{oid[:32]:32s} {o.kind.value:13s} {o.amount_inr:>12,.2f} "
+              f"{dg.failure_class.value:24s} {dg.tier:14s} {dg.confidence:.2f}")
+    print(f"\n  diagnoser: mode={d.mode} "
+          f"deterministic={d.stats['deterministic']} llm={d.stats['llm']} "
+          f"fallback={d.stats['fallback']} cost={_fmt_inr(d.stats['llm_cost_inr'])}")
+    print("  No lift is reported: real events have no holdout and no ground truth.")
+
+
 def cmd_verify(args) -> None:
     res = verify_file(args.path)
     print(json.dumps(res, indent=2))
@@ -338,6 +473,15 @@ def main() -> None:
     e.add_argument("--seed", type=int, default=20260903)
     e.add_argument("--holdout", type=int, default=20)
     e.add_argument("--chaos", type=float, default=0.0)
+    e.add_argument("--out", default=None, help="report filename under artifacts/")
+    # Default 0.35, not 0. A clean corpus makes every failure fully determined
+    # by its structured `error_reason`, both tiers score 100%, and the model
+    # provably adds nothing -- which says more about the corpus than the agent.
+    # Real gateways drop fields, emit vendor codes and misattribute sources, so
+    # the realistic setting is the honest default. `--noise 0` runs the ablation.
+    e.add_argument("--noise", type=float, default=0.35,
+                   help="share of orders with degraded structured error fields "
+                        "(cause still recoverable from free text). Default 0.35.")
     e.add_argument("--live", action="store_true", help="use the real model for diagnosis")
     e.add_argument("--stub", action="store_true", help="force offline stub diagnosis")
     e.set_defaults(func=cmd_eval)
@@ -346,6 +490,16 @@ def main() -> None:
     c.add_argument("--orders", type=int, default=300)
     c.add_argument("--seed", type=int, default=20260903)
     c.set_defaults(func=cmd_chaos)
+
+    ig = sub.add_parser("ingest", help="post webhook fixtures at a running server")
+    ig.add_argument("--url", default="http://127.0.0.1:8000/webhooks/razorpay")
+    ig.add_argument("--dir", default="fixtures/webhooks")
+    ig.set_defaults(func=cmd_ingest)
+
+    rp = sub.add_parser("replay", help="run webhook-ingested orders through the pipeline")
+    rp.add_argument("--spool", default=os.path.join(ART, "webhook_spool.jsonl"))
+    rp.add_argument("--live", action="store_true")
+    rp.set_defaults(func=cmd_replay)
 
     v = sub.add_parser("verify", help="verify a ledger hash chain")
     v.add_argument("path")

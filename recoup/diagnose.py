@@ -100,13 +100,24 @@ Rules:
 - If the input genuinely does not determine a class, return UNKNOWN with low
   confidence rather than guessing a specific one.
 
-Important domain context:
-- `insufficient_funds` on a SUBSCRIPTION/mandate debit is MANDATE_INSUFFICIENT,
-  not INSUFFICIENT_FUNDS. The mandate is alive; the debit bounced. Recovery is
-  re-presentment, which is a different action from nudging a customer.
-- `gateway_technical_error` inside a detected outage window is ISSUER_DOWN.
-  The same error with `inside_detected_outage: false` is more likely an
-  isolated GATEWAY_TIMEOUT.
+Important domain context. Read `error_source` carefully -- it is the field that
+disambiguates the two hardest pairs:
+
+- `insufficient_funds` splits on `error_source`, NOT on order kind:
+    * `error_source: "customer"` -> INSUFFICIENT_FUNDS. The customer's balance
+      was short at checkout. Recovery is a payday-timed retry or a nudge.
+    * `error_source: "bank"`     -> MANDATE_INSUFFICIENT. An auto-debit was
+      presented against a live mandate and the bank bounced it. Recovery is
+      re-presentment on a better date.
+  A SUBSCRIPTION order can be either. Do not infer the class from `order_kind`.
+
+- `gateway_technical_error` is an ISSUER_DOWN failure -- the bank or its
+  gateway leg failed. This holds whether or not `inside_detected_outage` is
+  true; that flag only tells you we independently confirmed a cluster, and its
+  absence means the incident was below our detection threshold, not that the
+  cause was different. GATEWAY_TIMEOUT is a *separate* reason string
+  (`gateway_timeout`) meaning the request timed out awaiting a response.
+
 - A high `customer_success_ratio` with a sudden hard decline suggests an
   instrument problem, not an intent problem.
 
@@ -244,7 +255,10 @@ class Diagnoser:
         try:
             resp = self._client.messages.create(
                 model=self.model,
-                max_tokens=400,
+                # 400 was too tight: a long `reasoning` string could truncate
+                # the JSON mid-object, and the truncated payload then failed to
+                # parse. 700 leaves headroom for the schema plus evidence.
+                max_tokens=700,
                 system=SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": user}],
             )
@@ -256,7 +270,7 @@ class Diagnoser:
             self.stats["out_tokens"] += out_tok
             self.stats["llm_cost_inr"] += cost
 
-            raw = resp.content[0].text.strip()
+            raw = _first_text(resp)
             data = _extract_json(raw)
             # Validate hard. An unparseable or out-of-taxonomy answer is not
             # silently coerced -- it is recorded as a schema violation and the
@@ -304,6 +318,22 @@ class Diagnoser:
                 model_version=self.model,
                 fallback_reason=f"{type(e).__name__}: {str(e)[:200]}",
             )
+
+
+def _first_text(resp) -> str:
+    """Pull the first text block out of a response.
+
+    Indexing `resp.content[0].text` blindly was the source of 21 "API errors"
+    in the first live run -- the block at index 0 is not guaranteed to be a text
+    block, and `.text` came back None, so an AttributeError inside the try
+    surfaced as an API failure and silently fell back to the deterministic tier.
+    A bug in my own parsing, misattributed to the provider.
+    """
+    for block in resp.content or []:
+        txt = getattr(block, "text", None)
+        if txt:
+            return txt.strip()
+    raise ValueError("response contained no text block")
 
 
 def _extract_json(raw: str) -> Dict:
