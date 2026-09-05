@@ -3,12 +3,14 @@
 The live form is at https://forms.gle/d9r2gvxp8cmoZhon9 (*"Razorpay AI Builder -
 Registration Form"*). **It is the final submission and cannot be edited after
 submitting** — it requires the GitHub URL and the video link as mandatory fields, so it
-goes in last, with about two hours of buffer.
+goes in last after both links have been tested signed-out. The published deadline has no
+time attached, so submit as soon as the assets are ready rather than assuming midnight.
 
 Fields it asks for:
 
 | field | value |
 |---|---|
+| Email | *(yours)* |
 | Full Name | *(yours)* |
 | College Name | *(yours)* |
 | Graduation Year | 2027 / 2028 / 2029 — **only these three are accepted** |
@@ -21,6 +23,9 @@ Fields it asks for:
 | 5-min Pitch Video Link | *(unlisted YouTube / Drive link — check it plays signed-out)* |
 | Build Challenges & Technical Obstacles | *draft below* |
 | Final Submission Confirmation | tick only when the repo is public and the video plays |
+
+The landing page mentions a resume, but the live form currently has no resume-upload
+field. Keep a PDF ready in case the form changes before submission.
 
 ---
 
@@ -38,9 +43,9 @@ Fields it asks for:
 >
 > Recoup assigns 20% of orders to a randomized, stratified holdout that is **never
 > contacted**, and only ever claims the difference. On a 500-order batch that is
-> **+24.4 percentage points of incremental recovery, ₹10.3L, 95% CI +14.8 to +33.4**, at
-> **₹0.50 per ₹100 recovered**. Against the naive retry schedule a merchant already runs
-> — the fair commercial comparison, not against nothing — it is **+19.7pp**. It also
+> **+31.4 percentage points of incremental recovery, ₹10.35L, 95% CI +22.0 to +40.5**, at
+> **₹0.234 per ₹100 recovered**. Against the naive retry schedule a merchant already runs
+> — the fair commercial comparison, not against nothing — it is **+26.7pp / ₹7.04L**. It also
 > reports what a recovery rate hides: contacts wasted on customers who were going to pay
 > anyway, and the permanent opt-outs the campaign caused, priced as forward revenue lost.
 >
@@ -120,7 +125,7 @@ are logged in `ARCHITECTURE.md`; these four are the ones that changed the result
 > gateways — dropped `error_reason`, vendor-specific codes in no taxonomy, misattributed
 > `error_source` — while keeping the cause recoverable from the free-text description. On
 > that corpus the deterministic tier degrades and the model does not, and the model's
-> contribution is finally measurable: **+5.5pp of additional lift, ₹68k more recovered,
+> contribution is finally measurable: **+9.5pp of additional lift, ₹79k more recovered,
 > and fewer wasted contacts and opt-outs.** The honest conclusion is conditional: on tidy
 > data the model is not worth its latency or cost; it earns its place exactly where the
 > structured fields stop being trustworthy.
@@ -139,4 +144,4 @@ judgement rather than effort.)*
 - [ ] `RESULTS.md` regenerated from the final `make ablation` run
 - [ ] Video is ≤5:00, plays signed-out, audio audible, terminal text legible
 - [ ] Graduation year is 2027/2028/2029
-- [ ] Only submit the form once, ~2h before the deadline
+- [ ] Only submit the form once; the deadline has no published time, so do not wait for midnight

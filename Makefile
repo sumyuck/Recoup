@@ -1,6 +1,7 @@
 PY := .venv/bin/python
 ORDERS ?= 500
 SEED ?= 20260903
+CALIBRATION_ORDERS ?= 6000
 
 .PHONY: help venv demo eval eval-live chaos calibrate results serve verify clean
 
@@ -11,7 +12,7 @@ venv: ## create the venv and install deps
 	python3 -m venv .venv && .venv/bin/pip install -q -r requirements.txt
 
 calibrate: ## learn action priors from a separate calibration batch
-	$(PY) scripts/calibrate.py 4000
+	$(PY) scripts/calibrate.py $(CALIBRATION_ORDERS)
 
 eval: ## run all three arms, write report.json + RESULTS.md
 	$(PY) cli.py eval --orders $(ORDERS) --seed $(SEED)

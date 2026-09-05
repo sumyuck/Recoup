@@ -4,8 +4,8 @@ Rules I'm holding myself to: no slides except one architecture frame, no music, 
 recording with my own voice, and **no more than 25 seconds on the problem statement.**
 Judges know what a failed payment is.
 
-Numbers below are placeholders marked `{…}` — fill from `RESULTS.md` after the final
-`make eval-live`, and say the real ones out loud.
+Numbers below are frozen from the final live run in `RESULTS.md`. If the evaluation is
+rerun, update this script and the submission copy together before recording.
 
 ---
 
@@ -61,23 +61,23 @@ Talk over it while it streams:
 
 Point at the holdout column.
 
-> "Here's why the holdout matters. The holdout recovered `{19.0}%` of its orders while
+> "Here's why the holdout matters. The holdout recovered **23.2% — 23 of 99 orders** while
 > being completely ignored — an outage ended, a salary landed, someone retried on their
-> own. That's `{₹4.6L}` of recovery that has nothing to do with any agent.
+> own. That recovery has nothing to do with any agent.
 >
 > Any system that touches everything gets to claim that number. Mine can't, because I
 > deliberately withheld a control group.
 >
-> So the only thing I claim is the difference: **`{+36}` percentage points, `{₹11.6L}`
-> incremental, 95% confidence interval `{+26.5 to +44.8}`.** Bootstrap, not a
+> So the only thing I claim is the difference: **+31.4 percentage points, ₹10.35L
+> incremental, 95% confidence interval +22.0 to +40.5.** Bootstrap, not a
 > point estimate — and if that interval crossed zero the report would say *not
 > significant.*"
 
 Then the honest downgrade:
 
 > "And the number a merchant actually buys is smaller than that. Against arm A — the
-> retry schedule they already have, not against nothing — it's **`{+25}` points** and
-> **`{₹9L}`.** That's the real offer, so that's the number I lead with."
+> retry schedule they already have, not against nothing — it's **+26.7 points** and
+> **₹7.04L.** That's the real offer, so that's the number I lead with."
 
 **Shot:** the three KPI cards, then the "lift vs merchant baseline" card.
 
@@ -85,7 +85,7 @@ Then the honest downgrade:
 
 ## 2:10–3:00 — one order's full audit trail
 
-Click a `{₹39,130}` overdue invoice in the orders table.
+Open order `order_5df8aa203d33da`, a ₹5,720 failed mandate debit.
 
 > "Every decision is in a hash-chained ledger. This is one invoice, end to end.
 >
@@ -93,15 +93,14 @@ Click a `{₹39,130}` overdue invoice in the orders table.
 > than 94%' is arithmetic and paying a model to do arithmetic would make my numbers
 > unreproducible.
 >
-> Diagnosis is where the model earns its place: this one was `insufficient_funds` on a
-> mandate debit, which is **not** the same problem as a customer with an empty wallet.
-> The mandate is alive, the debit bounced — so the right action is re-presentment, not a
-> nudge. The model got that; my lookup table didn't.
+> Diagnosis is where the model earns its place: this one said `insufficient_funds`, but
+> `error_source=bank` and the live e-mandate show that it is a bounced auto-debit, not a
+> customer-side checkout failure. The model classified it as `MANDATE_INSUFFICIENT` and
+> chose mandate re-presentment first.
 >
-> Then it proposed a voice call. **And the policy engine refused it** — this customer had
-> already been contacted inside 24 hours. Watch what happens: the rule that blocked it is
-> named, and because a frequency cap is *transient* rather than permanent, the sequence
-> is deferred rather than abandoned. It comes back the next day and recovers the money."
+> After two attempts, the next communication landed in quiet hours. **The policy engine
+> refused it**, named the exact rule and deferred the sequence instead of abandoning it.
+> It came back at 9:00, sent the permitted SMS and recovered the payment."
 
 **Shot:** the drawer timeline. Scroll slowly through the green ✓ / red ✗ rule trace.
 **This is the money shot of the whole video.** Do not rush it.
@@ -134,9 +133,9 @@ Switch to `policy.yaml`.
 make chaos
 ```
 
-> "Injected gateway failure at 0, 15, 35 and 60 percent. At sixty percent: `{68}`
-> transient errors, `{36}` ambiguous timeouts, `{2}` circuit-breaker trips, `{25}`
-> dead-lettered — and recovery moves by one order.
+> "Injected gateway failure at 0, 15, 35 and 60 percent. In the final 60% run: **91**
+> transient errors, **49** ambiguous timeouts, **5** circuit-breaker trips and **57**
+> dead-lettered — while double charges stay at zero.
 >
 > The important one is ambiguous timeouts. A timeout means *unknown*, not *failed*.
 > Retrying blind is exactly how a customer gets charged twice, so it reconciles true
@@ -198,7 +197,7 @@ They will ask these. Have the answer in one sentence each.
 | Why deterministic detection, not an LLM? | It's a hypothesis test over counts — exact, reproducible, free. Non-determinism there would poison every downstream measurement. |
 | Why not LangChain / an agent framework? | I needed a deterministic gate and a replayable audit log. A hand-rolled state machine means I can explain every line and the ledger *is* the state. |
 | Why 3 retries and not 5? | `policy.yaml`, and it's the wrong question to answer from taste — the economic stop already ends sequences that aren't worth continuing, so the cap is a blast-radius limit, not a tuning knob. |
-| Why cap contacts at 1 per 24h? | Opt-outs are permanent and priced in the report at `{₹14,208}` of forward revenue. Over-contacting is the failure mode a dunning system hides best. |
-| Your lift looks high. | Against a no-contact holdout, yes. Against the retry schedule a merchant already runs it's `{+25}`pp, and I scaled my own effectiveness estimates down 48% after the first run gave an implausible 42. |
-| What breaks first in production? | Detection on low-volume cells — 1,456 cell-buckets were too sparse to test, and recall falls to 0.10 at 15% outage severity. Measured, in the sweep artifact. |
-| Where does the LLM actually help? | The ambiguous slice only, ~34% of volume. Reported as a separate tier accuracy so it has to earn it. |
+| Why cap contacts at 1 per 24h? | Opt-outs are permanent and priced in the report at ₹14,628 of forward revenue. Over-contacting is the failure mode a dunning system hides best. |
+| Your lift looks high. | Against a no-contact holdout, yes. Against the retry schedule a merchant already runs it's +26.7pp, and I scaled my own effectiveness estimates down 48% after the first run gave an implausible 42. |
+| What breaks first in production? | Detection on low-volume cells — 1,447 cell-buckets were too sparse to test, and recall falls to 0.10 at 15% outage severity. Measured, in the sweep artifact. |
+| Where does the LLM actually help? | The ambiguous slice only, 144 of 327 diagnosed orders. Reported as a separate tier accuracy so it has to earn it. |

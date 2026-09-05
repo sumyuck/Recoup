@@ -29,13 +29,13 @@ at all**. The only number Recoup claims is the difference:
 
 | | value |
 |---|---|
-| Treated recovery rate | **47.6%** |
+| Treated recovery rate | **54.6%** |
 | Holdout recovery rate (agent off) | **23.2%** |
-| **Incremental lift** | **+24.4pp** (95% CI +14.8 to +33.4) |
-| **Incremental recovered** | **₹10,30,972** |
-| Cost per ₹100 recovered | **₹0.495** |
-| Lift over the retry schedule a merchant already runs | **+19.7pp** / ₹6,99,355 |
-| Share of the addressable ceiling captured | **49%** |
+| **Incremental lift** | **+31.4pp** (95% CI +22.0 to +40.5) |
+| **Incremental recovered** | **₹10,35,339** |
+| Cost per ₹100 recovered | **₹0.234** |
+| Lift over the retry schedule a merchant already runs | **+26.7pp** / ₹7,03,722 |
+| Share of the addressable ceiling captured | **49.3%** |
 
 Measured with `claude-sonnet-5` doing diagnosis, on a 500-order corpus with 35% field
 noise. Full generated numbers: **[RESULTS.md](RESULTS.md)** — every figure is rendered
@@ -83,13 +83,13 @@ is how messy the error fields are.
 
 | | clean corpus | noisy corpus (default) |
 |---|---:|---:|
-| deterministic tier resolves | 207 orders | 144 orders |
-| routed to the model | 123 orders | 183 orders |
+| deterministic tier resolves | 207 orders | 183 orders |
+| routed to the model | 123 orders | 144 orders |
 | **rules-only** diagnosis accuracy | 93.6% | **69.1%** |
 | **agent** diagnosis accuracy | 100% | **99.7%** |
-| rules-only lift | +22.4pp | +18.9pp |
-| agent lift | +25.6pp | +24.4pp |
-| **model contribution (C − B)** | **+3.3pp / ₹23,708** | **+5.5pp / ₹68,316** |
+| rules-only lift | +22.4pp | +21.9pp |
+| agent lift | +25.6pp | +31.4pp |
+| **model contribution (C − B)** | **+3.3pp / ₹23,708** | **+9.5pp / ₹79,489** |
 
 The answer is conditional, and I would rather say it than hide it: **on tidy data the
 model is not worth its latency or its cost. It earns its place precisely where the
@@ -298,7 +298,7 @@ production:
    not a good result, it is a broken simulator; published dunning benchmarks put
    incremental lift in the 5–20pp band. `REALISM_SCALE` in `corpus.py` records the
    correction.
-3. **Detection only works on cells with volume.** 1,456 cell-buckets were too sparse to
+3. **Detection only works on cells with volume.** 1,447 cell-buckets were too sparse to
    test at all. Recall holds at 1.00 down to ~35% outage severity, then falls off a
    cliff to 0.10 at 15% — measured, in
    [`artifacts/detector_sensitivity_sweep.txt`](artifacts/detector_sensitivity_sweep.txt).
