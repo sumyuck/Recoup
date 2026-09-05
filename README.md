@@ -4,6 +4,8 @@
 
 Razorpay AI Buildathon — Track 03, AI Revenue Recovery.
 
+**[Watch the 4-minute pitch](https://github.com/sumyuck/Recoup/raw/refs/heads/main/Recoup-Pitch.mp4)**
+
 Recoup takes a batch of failed payments, failed subscription debits and overdue B2B
 invoices; works out *why* each one failed; picks a recovery action; passes that action
 through a policy gate that can refuse it; executes it against Razorpay test-mode APIs;
