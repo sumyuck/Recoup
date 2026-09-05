@@ -133,8 +133,8 @@ Switch to `policy.yaml`.
 make chaos
 ```
 
-> "Injected gateway failure at 0, 15, 35 and 60 percent. In the final 60% run: **91**
-> transient errors, **49** ambiguous timeouts, **5** circuit-breaker trips and **57**
+> "Injected gateway failure at 0, 15, 35 and 60 percent. In the final 60% run: **87**
+> transient errors, **49** ambiguous timeouts, **4** circuit-breaker trips and **50**
 > dead-lettered — while double charges stay at zero.
 >
 > The important one is ambiguous timeouts. A timeout means *unknown*, not *failed*.
