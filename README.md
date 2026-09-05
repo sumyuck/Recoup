@@ -108,6 +108,7 @@ python -m venv .venv && .venv/bin/pip install -r requirements.txt
 cp .env.example .env          # optional: add ANTHROPIC_API_KEY and rzp_test_ keys
 make demo                     # calibrate priors, run all arms, render results
 make serve                    # dashboard on http://localhost:8000
+make pitch                    # verify frozen evidence + serve the recording-ready dashboard
 ```
 
 No keys needed. Without them the pipeline runs fully offline: diagnosis uses the

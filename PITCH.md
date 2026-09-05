@@ -1,203 +1,154 @@
-# 5-minute pitch — script and shot list
+# Recoup — final live-demo pitch
 
-Rules I'm holding myself to: no slides except one architecture frame, no music, screen
-recording with my own voice, and **no more than 25 seconds on the problem statement.**
-Judges know what a failed payment is.
+Target runtime: **4:20–4:40**. Record the running product with your own voice. The
+generated video in `docs/` is only the emergency fallback.
 
-Numbers below are frozen from the final live run in `RESULTS.md`. If the evaluation is
-rerun, update this script and the submission copy together before recording.
+The numbers in this script are frozen from `RESULTS.md`. Do not rerun the live model
+while recording: it adds latency and risk without proving anything the dashboard and
+reproducible artifacts do not already prove.
 
----
-
-## Before recording
+## One-minute setup
 
 ```bash
-make demo                       # calibrate → eval → chaos, all fresh
-make eval-live                  # the run you quote on camera
-make serve                      # dashboard on :8000
+make pitch
 ```
 
-Open three things and nothing else: the dashboard, a terminal, and `policy.yaml`.
-Close Slack. Full-screen the browser. Zoom the terminal font to ~16pt so it's readable
-when compressed.
-
----
-
-## 0:00–0:25 — the problem, in numbers, then stop
-
-> "When a payment fails, most merchants retry it three times on a fixed schedule and
-> hope. Some of that money comes back on its own. So when a dunning tool tells you it
-> recovered 40% of failed payments, you have no idea whether it did anything at all.
->
-> I built a recovery agent that answers that question about itself."
-
-**Shot:** terminal, nothing running yet. Do not show a slide. Do not explain what
-dunning is.
-
----
-
-## 0:25–1:10 — the run
+Open `http://127.0.0.1:8000` in a clean browser window. Use 1920×1080, browser zoom
+90–100%, a large cursor, and no notifications. Keep one terminal ready in a second
+window with these commands typed but not run:
 
 ```bash
-make eval-live
+.venv/bin/python cli.py trace order_5df8aa203d33da
+.venv/bin/python cli.py verify artifacts/ledger_C_AGENT.jsonl
 ```
 
-Talk over it while it streams:
+Record with macOS Screenshot (`Shift-Command-5`) or OBS, microphone on. Speak a little
+slower than normal. Do one complete take before trying to perfect individual lines.
 
-> "Five hundred at-risk orders — failed payments, bounced autopay debits, overdue B2B
-> invoices — plus two hundred thousand background traffic events so the detector has
-> real statistics to work on.
+## 0:00–0:35 — open on the uncomfortable number
+
+**Shot:** Dashboard hero. Keep the three numbers visible.
+
+> “A normal recovery dashboard would say this system recovered **₹13.76 lakh**. That is
+> the flattering number — and it is not the number I trust.
 >
-> Three arms on the same corpus. Arm A is the fixed retry schedule a merchant already
-> runs. Arm B is good heuristics with no model anywhere. Arm C is the full agent.
+> Some failed payments recover on their own. A merchant also already has a retry
+> schedule. So I built Recoup: a bounded recovery agent that has to prove how much
+> money it caused, decide the next best intervention, and show why that intervention
+> was allowed.”
+
+Point once across the three numbers: gross, causal, merchant baseline.
+
+## 0:35–1:25 — prove causality, not activity
+
+**Shot:** Click **See the experiment**. Show the arm table and headline KPIs.
+
+> “This is one shared corpus: 500 at-risk orders and 202,005 background payment events.
+> Arm A is the fixed retry schedule a merchant already runs. Arm B is rules only. Arm C
+> is the full agent. The executor, policy and simulated world are identical; only the
+> decision policy changes.
 >
-> And twenty percent of orders go into a holdout that is **never contacted at all.**"
-
-**Shot:** the arm table filling in. Let it finish. Don't narrate every column.
-
----
-
-## 1:10–2:10 — the one idea (the most important minute)
-
-Point at the holdout column.
-
-> "Here's why the holdout matters. The holdout recovered **23.2% — 23 of 99 orders** while
-> being completely ignored — an outage ended, a salary landed, someone retried on their
-> own. That recovery has nothing to do with any agent.
+> Twenty percent is a never-contacted holdout. It recovered **23.2%** while Recoup did
+> absolutely nothing — outages ended, salaries landed, customers retried. Recoup is not
+> allowed to claim that money.
 >
-> Any system that touches everything gets to claim that number. Mine can't, because I
-> deliberately withheld a control group.
+> The full agent produces **+31.4 percentage points** versus holdout, or **₹10.35 lakh
+> incremental**, with a 95% confidence interval shown here. Against the retry schedule
+> the merchant already owns, the honest commercial result is **+26.7 points and ₹7.04
+> lakh**. That is the number I would sell.”
+
+Pause half a second on the confidence interval. Do not explain bootstrap mechanics.
+
+## 1:25–2:35 — the agent earns its place on one messy payment
+
+**Shot:** Click **Open featured decision trail**. Slowly scroll the drawer from the
+diagnosis through the first denial and final recovery.
+
+> “Now one ₹5,720 payment, end to end. The gateway called it `insufficient_funds`, but
+> the evidence says `error_source=bank` and the method is an active e-mandate. Recoup
+> correctly interprets that as a bounced mandate, not a customer checkout failure.
 >
-> So the only thing I claim is the difference: **+31.4 percentage points, ₹10.35L
-> incremental, 95% confidence interval +22.0 to +40.5.** Bootstrap, not a
-> point estimate — and if that interval crossed zero the report would say *not
-> significant.*"
-
-Then the honest downgrade:
-
-> "And the number a merchant actually buys is smaller than that. Against arm A — the
-> retry schedule they already have, not against nothing — it's **+26.7 points** and
-> **₹7.04L.** That's the real offer, so that's the number I lead with."
-
-**Shot:** the three KPI cards, then the "lift vs merchant baseline" card.
-
----
-
-## 2:10–3:00 — one order's full audit trail
-
-Open order `order_5df8aa203d33da`, a ₹5,720 failed mandate debit.
-
-> "Every decision is in a hash-chained ledger. This is one invoice, end to end.
+> That distinction changes the action. It proposes mandate re-presentment, computes
+> expected value, and sends the proposal to a deterministic policy gate. Every green
+> line is a rule that had to pass — approval limit, retry cap, budget, uplift and
+> economics — before the executor could act.
 >
-> Detection is a two-proportion z-test — deterministic, no model, because 'is 61% lower
-> than 94%' is arithmetic and paying a model to do arithmetic would make my numbers
-> unreproducible.
+> After the re-presentments, the next communication falls in quiet hours. The model
+> does not get an override. Policy denies it, names the exact rule and defers the
+> sequence. At 9 AM the SMS is permitted, the payment recovers, and the sequence stops.
 >
-> Diagnosis is where the model earns its place: this one said `insufficient_funds`, but
-> `error_source=bank` and the live e-mandate show that it is a bounced auto-debit, not a
-> customer-side checkout failure. The model classified it as `MANDATE_INSUFFICIENT` and
-> chose mandate re-presentment first.
+> The model proposes. Policy authorizes. The ledger remembers both.”
+
+This is the centre of the demo. Let the red quiet-hours verdict and green final outcome
+remain visible long enough to read.
+
+## 2:35–3:15 — show where AI is useful, and where it is not
+
+**Shot:** Close the drawer. Scroll to **Diagnosis accuracy by tier**.
+
+> “I deliberately did not put an LLM everywhere. Detection is a deterministic
+> two-proportion test because arithmetic should be reproducible. Known failure shapes
+> use lookups. Only 144 of 327 ambiguous records reach the model.
 >
-> After two attempts, the next communication landed in quiet hours. **The policy engine
-> refused it**, named the exact rule and deferred the sequence instead of abandoning it.
-> It came back at 9:00, sent the permitted SMS and recovered the payment."
+> On the noisy corpus, rules-only diagnosis is **69.1%** accurate; the routed agent is
+> **99.7%**. On clean data both reach 100%, so the model adds nothing and should not be
+> called. The ₹84 model cost is reported separately. AI has to earn its traffic.”
 
-**Shot:** the drawer timeline. Scroll slowly through the green ✓ / red ✗ rule trace.
-**This is the money shot of the whole video.** Do not rush it.
+## 3:15–3:55 — failure safety, live in the terminal
 
----
-
-## 3:00–3:35 — bounded, and why that's the architecture
-
-Switch to `policy.yaml`.
-
-> "This file is the entire authorization surface. The model proposes; this decides.
-> There is no override path in code — so a hallucinating or prompt-injected model can't
-> do more than get denied, and the denial is logged with the rule that caught it.
->
-> Contact caps, quiet hours, DND, permanent opt-out, voice gated on amount and on two
-> cheaper touches having already failed, human approval above ₹75,000, and an **economic
-> stop**: if expected value is under 1.5× the cost of acting, doing nothing is the
-> correct answer.
->
-> Every verdict logs the full rule trace on **allow** as well as deny — because 'why was
-> this permitted?' is the question you actually get asked in an audit."
-
-**Shot:** scroll `policy.yaml`. It reads as a document, which is the point.
-
----
-
-## 3:35–4:15 — failure path, live
+**Shot:** Switch to the terminal. Run the two prepared commands.
 
 ```bash
-make chaos
+.venv/bin/python cli.py trace order_5df8aa203d33da
+.venv/bin/python cli.py verify artifacts/ledger_C_AGENT.jsonl
 ```
 
-> "Injected gateway failure at 0, 15, 35 and 60 percent. In the final 60% run: **87**
-> transient errors, **49** ambiguous timeouts, **4** circuit-breaker trips and **50**
-> dead-lettered — while double charges stay at zero.
+> “The same trace is available as data, not just a UI, and the complete ledger verifies
+> as a valid hash chain.
 >
-> The important one is ambiguous timeouts. A timeout means *unknown*, not *failed*.
-> Retrying blind is exactly how a customer gets charged twice, so it reconciles true
-> state first.
+> I also injected gateway failure up to 60 percent. That run produced 87 transient
+> errors, 49 ambiguous timeouts, four breaker trips and 50 dead-lettered actions — with
+> **zero double charges**. An ambiguous timeout is reconciled before retry, and three
+> identical charge submissions produce one gateway call. Safety is an invariant, not
+> a happy-path claim.”
+
+The chaos evidence is already committed in `RESULTS.md` and `artifacts/`; do not spend
+a minute running the full chaos sweep during a five-minute video.
+
+## 3:55–4:35 — limits, then the close
+
+**Shot:** Return to the dashboard and use the top nav to jump to **04 guardrails**.
+
+> “The authorization surface is this policy: contact caps, permanent opt-out, DND and
+> quiet hours, human approval above ₹75,000, batch budgets, and an economic stop when
+> expected value is below 1.5 times action cost.
 >
-> And this — three identical submissions of the same charge, the way a retried webhook
-> or a double-clicked button actually arrives. **One gateway call. Two duplicates
-> prevented. Zero double charges.**"
-
-**Shot:** the chaos table, then the duplicate-submission proof block.
-
----
-
-## 4:15–4:45 — what I got wrong
-
-Do not skip this. It is the highest-value 30 seconds in the video.
-
-> "Three things I got wrong that changed the result.
+> What is real here: signed Razorpay webhook ingestion, the statistical detector,
+> routed diagnosis, policy engine, idempotent executor, holdout measurement and audit
+> trail. What is simulated is the customer's eventual payment outcome, so I do not
+> pretend the rupee figure is production revenue.
 >
-> My detector reported five incidents for two real outages. Precision 0.4. They weren't
-> false positives — an ICICI outage dips *every* gateway, so the same root cause was
-> firing on both slices. I added attribution: largest effect size wins, the rest are
-> recorded as shadows. Two incidents, precision 1.0.
->
-> My false-positive cost came out as exactly zero, which is impossible. Self-healing
-> orders were resolving before the agent could contact them, so wasted contacts could
-> never be counted. Fixed it, and my lift number **got worse** — which is how I knew the
-> fix was right.
->
-> And my first run showed 42-point lift and 99% of the recovery ceiling. That's not a
-> good result, it's a broken simulator. I scaled my own effectiveness estimates down by
-> half. All fourteen bugs are in ARCHITECTURE.md."
+> Most agents demonstrate that they can act. Recoup demonstrates when it should not
+> act — and proves whether the actions that remain actually made money.”
 
-**Shot:** the bug table in ARCHITECTURE.md.
+Stop there. No “thank you” slide and no music.
 
----
+## Upload and replacement checklist
 
-## 4:45–5:00 — limits and close
+- Export MP4 at 1080p; keep it under five minutes.
+- Watch once at 1× and confirm text is legible and no secret or API key appears.
+- Upload to YouTube as **Unlisted** or Google Drive with “Anyone with the link can view.”
+- Open the link in an incognito window and play at least 20 seconds.
+- Replace the video URL in the submission form. The public GitHub Pages link remains a
+  valid fallback until the new recording is ready.
 
-> "What's real: the measurement machinery, the policy engine, the audit trail, and the
-> Razorpay integration — it ingests real signed `payment.failed` and
-> `subscription.halted` webhooks. What's simulated: whether a customer actually pays.
->
-> So the rupee figure is synthetic. The method isn't — point it at real Razorpay data
-> and the holdout, the confidence intervals and the exception list all still work.
->
-> That's Recoup."
+## Likely judge questions
 
-Stop. No "thank you for your time" slide.
-
----
-
-## Things to have ready for the panel
-
-They will ask these. Have the answer in one sentence each.
-
-| question | answer |
+| Question | One-line answer |
 |---|---|
-| Why deterministic detection, not an LLM? | It's a hypothesis test over counts — exact, reproducible, free. Non-determinism there would poison every downstream measurement. |
-| Why not LangChain / an agent framework? | I needed a deterministic gate and a replayable audit log. A hand-rolled state machine means I can explain every line and the ledger *is* the state. |
-| Why 3 retries and not 5? | `policy.yaml`, and it's the wrong question to answer from taste — the economic stop already ends sequences that aren't worth continuing, so the cap is a blast-radius limit, not a tuning knob. |
-| Why cap contacts at 1 per 24h? | Opt-outs are permanent and priced in the report at ₹14,628 of forward revenue. Over-contacting is the failure mode a dunning system hides best. |
-| Your lift looks high. | Against a no-contact holdout, yes. Against the retry schedule a merchant already runs it's +26.7pp, and I scaled my own effectiveness estimates down 48% after the first run gave an implausible 42. |
-| What breaks first in production? | Detection on low-volume cells — 1,447 cell-buckets were too sparse to test, and recall falls to 0.10 at 15% outage severity. Measured, in the sweep artifact. |
-| Where does the LLM actually help? | The ambiguous slice only, 144 of 327 diagnosed orders. Reported as a separate tier accuracy so it has to earn it. |
+| Why deterministic detection? | It is a hypothesis test over counts; non-determinism there would poison downstream measurement. |
+| Why no agent framework? | A replayable state machine and explicit policy gate make every transition explainable and testable. |
+| Why is lift so high? | The commercial comparison is the smaller +26.7pp versus the merchant's existing retry schedule, and the simulator was deliberately recalibrated after an implausibly strong first run. |
+| Where does the model help? | Only on 144 ambiguous records: 69.1% rules-only diagnosis becomes 99.7% with routed model judgment. |
+| What breaks first in production? | Sparse detection cells: 1,447 buckets were untestable, and recall falls to 0.10 at 15% outage severity. |
+| What is simulated? | Customer outcomes; the integration, decision controls, measurement method and audit machinery are implemented. |

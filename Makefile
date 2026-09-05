@@ -3,7 +3,7 @@ ORDERS ?= 500
 SEED ?= 20260903
 CALIBRATION_ORDERS ?= 6000
 
-.PHONY: help venv demo eval eval-live chaos calibrate results serve verify clean
+.PHONY: help venv demo pitch eval eval-live chaos calibrate results serve verify clean
 
 help:
 	@grep -E '^[a-z-]+:.*?##' $(MAKEFILE_LIST) | sed 's/:.*##/\t/' | column -t -s "$$(printf '\t')"
@@ -42,6 +42,12 @@ results: ## re-render RESULTS.md from the last report
 demo: calibrate eval chaos ## the full run, end to end
 	@echo ""
 	@echo "  Done. RESULTS.md has the numbers; 'make serve' for the dashboard."
+
+pitch: verify ## verify frozen evidence, then open the judge-ready dashboard on :8000
+	@echo ""
+	@echo "  Pitch dashboard: http://127.0.0.1:8000"
+	@echo "  Featured trace: order_5df8aa203d33da"
+	$(PY) cli.py serve
 
 serve: ## dashboard on http://localhost:8000
 	$(PY) cli.py serve
