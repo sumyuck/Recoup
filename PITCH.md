@@ -1,154 +1,136 @@
-# Recoup — final live-demo pitch
+# Recoup — simple live demo script
 
-Target runtime: **4:20–4:40**. Record the running product with your own voice. The
-generated video in `docs/` is only the emergency fallback.
+This is meant to sound spoken, not read. You do not need to say every word exactly.
+Target: **4 to 4½ minutes**.
 
-The numbers in this script are frozen from `RESULTS.md`. Do not rerun the live model
-while recording: it adds latency and risk without proving anything the dashboard and
-reproducible artifacts do not already prove.
+## Before recording
 
-## One-minute setup
+Run:
 
 ```bash
 make pitch
 ```
 
-Open `http://127.0.0.1:8000` in a clean browser window. Use 1920×1080, browser zoom
-90–100%, a large cursor, and no notifications. Keep one terminal ready in a second
-window with these commands typed but not run:
+Open `http://127.0.0.1:8000`. Keep another terminal ready with:
 
 ```bash
 .venv/bin/python cli.py trace order_5df8aa203d33da
 .venv/bin/python cli.py verify artifacts/ledger_C_AGENT.jsonl
 ```
 
-Record with macOS Screenshot (`Shift-Command-5`) or OBS, microphone on. Speak a little
-slower than normal. Do one complete take before trying to perfect individual lines.
+## 0:00 — introduce yourself and the project
 
-## 0:00–0:35 — open on the uncomfortable number
+**Show:** The top of the dashboard.
 
-**Shot:** Dashboard hero. Keep the three numbers visible.
-
-> “A normal recovery dashboard would say this system recovered **₹13.76 lakh**. That is
-> the flattering number — and it is not the number I trust.
+> “Hey, I’m Samyak, and this is Recoup, my project for the AI Revenue Recovery track.
 >
-> Some failed payments recover on their own. A merchant also already has a retry
-> schedule. So I built Recoup: a bounded recovery agent that has to prove how much
-> money it caused, decide the next best intervention, and show why that intervention
-> was allowed.”
-
-Point once across the three numbers: gross, causal, merchant baseline.
-
-## 0:35–1:25 — prove causality, not activity
-
-**Shot:** Click **See the experiment**. Show the arm table and headline KPIs.
-
-> “This is one shared corpus: 500 at-risk orders and 202,005 background payment events.
-> Arm A is the fixed retry schedule a merchant already runs. Arm B is rules only. Arm C
-> is the full agent. The executor, policy and simulated world are identical; only the
-> decision policy changes.
+> Recoup looks at failed payments, figures out why they failed, and chooses the best
+> next step. It might retry later, send a reminder, suggest another payment method, or
+> send a high-value case to a person.
 >
-> Twenty percent is a never-contacted holdout. It recovered **23.2%** while Recoup did
-> absolutely nothing — outages ended, salaries landed, customers retried. Recoup is not
-> allowed to claim that money.
+> The main thing I wanted to solve was knowing whether the agent actually helped. A lot
+> of failed payments come back on their own, so a big recovery number can be misleading.”
+
+## 0:35 — show the three numbers
+
+**Show:** Point across the three large cards.
+
+> “For example, the biggest number here is 13.76 lakh rupees. That is the total amount
+> recovered in the treated group, and it looks great.
 >
-> The full agent produces **+31.4 percentage points** versus holdout, or **₹10.35 lakh
-> incremental**, with a 95% confidence interval shown here. Against the retry schedule
-> the merchant already owns, the honest commercial result is **+26.7 points and ₹7.04
-> lakh**. That is the number I would sell.”
-
-Pause half a second on the confidence interval. Do not explain bootstrap mechanics.
-
-## 1:25–2:35 — the agent earns its place on one messy payment
-
-**Shot:** Click **Open featured decision trail**. Slowly scroll the drawer from the
-diagnosis through the first denial and final recovery.
-
-> “Now one ₹5,720 payment, end to end. The gateway called it `insufficient_funds`, but
-> the evidence says `error_source=bank` and the method is an active e-mandate. Recoup
-> correctly interprets that as a bounced mandate, not a customer checkout failure.
+> Recoup does not claim all of it. It keeps 20 percent of orders completely untouched,
+> which shows how much would return even if the agent did nothing.
 >
-> That distinction changes the action. It proposes mandate re-presentment, computes
-> expected value, and sends the proposal to a deterministic policy gate. Every green
-> line is a rule that had to pass — approval limit, retry cap, budget, uplift and
-> economics — before the executor could act.
+> After removing that effect, Recoup can claim 10.35 lakh. And compared with the simple
+> retry system a merchant may already be using, the extra value is 7.04 lakh. I think
+> that is the more honest number.”
+
+## 1:10 — show the experiment
+
+**Do:** Click **See the experiment**.
+
+> “I tested three approaches on the same 500 orders. The first is a basic retry schedule,
+> the second uses only rules, and the third is the full Recoup agent. Everything else
+> stays the same, so the comparison is fair.
 >
-> After the re-presentments, the next communication falls in quiet hours. The model
-> does not get an override. Policy denies it, names the exact rule and defers the
-> sequence. At 9 AM the SMS is permitted, the payment recovers, and the sequence stops.
+> The untouched group recovered 23.2 percent. The full agent reached 54.6 percent,
+> which is a 31.4 percentage point improvement. The confidence range is also shown, so
+> the result is not just one nice-looking number.
 >
-> The model proposes. Policy authorizes. The ledger remembers both.”
+> It also reports wasted contacts, opt-outs, and cases it could not safely handle.”
 
-This is the centre of the demo. Let the red quiet-hours verdict and green final outcome
-remain visible long enough to read.
+## 1:55 — demo one payment from start to finish
 
-## 2:35–3:15 — show where AI is useful, and where it is not
+**Do:** Go back to the top and click **Open featured decision trail**. Scroll slowly.
 
-**Shot:** Close the drawer. Scroll to **Diagnosis accuracy by tier**.
-
-> “I deliberately did not put an LLM everywhere. Detection is a deterministic
-> two-proportion test because arithmetic should be reproducible. Known failure shapes
-> use lookups. Only 144 of 327 ambiguous records reach the model.
+> “Let me show one real decision trail.
 >
-> On the noisy corpus, rules-only diagnosis is **69.1%** accurate; the routed agent is
-> **99.7%**. On clean data both reach 100%, so the model adds nothing and should not be
-> called. The ₹84 model cost is reported separately. AI has to earn its traffic.”
-
-## 3:15–3:55 — failure safety, live in the terminal
-
-**Shot:** Switch to the terminal. Run the two prepared commands.
-
-```bash
-.venv/bin/python cli.py trace order_5df8aa203d33da
-.venv/bin/python cli.py verify artifacts/ledger_C_AGENT.jsonl
-```
-
-> “The same trace is available as data, not just a UI, and the complete ledger verifies
-> as a valid hash chain.
+> This payment is for 5,720 rupees. The raw error says insufficient funds, but the other
+> details show a bank-side auto-debit failure. Recoup notices that difference and retries
+> the mandate instead of treating it like a normal checkout failure.
 >
-> I also injected gateway failure up to 60 percent. That run produced 87 transient
-> errors, 49 ambiguous timeouts, four breaker trips and 50 dead-lettered actions — with
-> **zero double charges**. An ambiguous timeout is reconciled before retry, and three
-> identical charge submissions produce one gateway call. Safety is an invariant, not
-> a happy-path claim.”
-
-The chaos evidence is already committed in `RESULTS.md` and `artifacts/`; do not spend
-a minute running the full chaos sweep during a five-minute video.
-
-## 3:55–4:35 — limits, then the close
-
-**Shot:** Return to the dashboard and use the top nav to jump to **04 guardrails**.
-
-> “The authorization surface is this policy: contact caps, permanent opt-out, DND and
-> quiet hours, human approval above ₹75,000, batch budgets, and an economic stop when
-> expected value is below 1.5 times action cost.
+> The AI only suggests the next action. It cannot directly send a message or move
+> money. Every suggestion has to pass the rules first: retry limits, consent, contact
+> limits, budget, and whether the action is worth its cost.
 >
-> What is real here: signed Razorpay webhook ingestion, the statistical detector,
-> routed diagnosis, policy engine, idempotent executor, holdout measurement and audit
-> trail. What is simulated is the customer's eventual payment outcome, so I do not
-> pretend the rupee figure is production revenue.
+> Here, the next message would have gone out during quiet hours, so the policy blocks
+> it. It waits until 9 AM, allows the SMS, the payment is recovered, and the sequence
+> stops. The history includes the action that was refused and why.”
+
+## 2:55 — explain where the AI is actually used
+
+**Do:** Close the trail and move to **Diagnosis accuracy by tier**.
+
+> “I also did not use AI for everything.
 >
-> Most agents demonstrate that they can act. Recoup demonstrates when it should not
-> act — and proves whether the actions that remain actually made money.”
+> Clear errors use normal code. The model only sees messy cases where fields are missing
+> or disagree with the written error message.
+>
+> Out of 327 diagnosed payments, only 144 needed the model. On this noisy data, the
+> rules-only version was 69.1 percent accurate, while the full agent reached 99.7
+> percent. On clean data both reach 100 percent, so there is no reason to pay for AI
+> there.”
 
-Stop there. No “thank you” slide and no music.
+## 3:30 — prove the safety work
 
-## Upload and replacement checklist
+**Do:** Switch to the terminal and run the two prepared commands.
 
-- Export MP4 at 1080p; keep it under five minutes.
-- Watch once at 1× and confirm text is legible and no secret or API key appears.
-- Upload to YouTube as **Unlisted** or Google Drive with “Anyone with the link can view.”
-- Open the link in an incognito window and play at least 20 seconds.
-- Replace the video URL in the submission form. The public GitHub Pages link remains a
-  valid fallback until the new recording is ready.
+> “This trail is not just drawn in the dashboard. I can print it from the ledger and
+> verify that the full chain has not been changed.
+>
+> I tested gateway failures as high as 60 percent and submitted the same charge three
+> times on purpose. It made one gateway call and produced zero double charges.”
 
-## Likely judge questions
+## 4:00 — be honest about what is real, then close
 
-| Question | One-line answer |
+**Do:** Return to the dashboard and click **04 guardrails**.
+
+> “This policy contains quiet hours, DND, opt-outs, contact limits, budgets, human
+> approval for large amounts, and a rule to stop when another action is not worth it.
+>
+> The Razorpay webhook handling, diagnosis, policy checks, executor, holdout experiment
+> and audit trail are implemented. The final customer payment outcomes are simulated,
+> so the rupee result is not real merchant revenue yet.
+>
+> It can be connected to real payment data and show not just what it recovered, but what
+> it genuinely added and why each action was safe.
+>
+> That’s Recoup.”
+
+## Recording checklist
+
+- Use your own voice. Small pauses or imperfections will sound more genuine than TTS.
+- Record at 1080p and keep the video under five minutes.
+- Keep the cursor slow and let the quiet-hours denial remain visible for a moment.
+- Do not show `.env`, API keys, notifications, or unrelated browser tabs.
+- Save the recording as `/Users/samyak/Desktop/Recoup-Final-Pitch.mov`.
+
+## Short answers if judges ask
+
+| Question | Answer |
 |---|---|
-| Why deterministic detection? | It is a hypothesis test over counts; non-determinism there would poison downstream measurement. |
-| Why no agent framework? | A replayable state machine and explicit policy gate make every transition explainable and testable. |
-| Why is lift so high? | The commercial comparison is the smaller +26.7pp versus the merchant's existing retry schedule, and the simulator was deliberately recalibrated after an implausibly strong first run. |
-| Where does the model help? | Only on 144 ambiguous records: 69.1% rules-only diagnosis becomes 99.7% with routed model judgment. |
-| What breaks first in production? | Sparse detection cells: 1,447 buckets were untestable, and recall falls to 0.10 at 15% outage severity. |
-| What is simulated? | Customer outcomes; the integration, decision controls, measurement method and audit machinery are implemented. |
+| Why not use the model everywhere? | Most payment errors are clear enough for normal code. I use the model only when the data is messy. |
+| Why keep an untouched group? | It shows how many payments would recover without Recoup, so I do not claim money the agent did not cause. |
+| Can the AI bypass the rules? | No. It only suggests an action; the policy engine makes the final decision. |
+| What is simulated? | The customer’s eventual payment result. The pipeline, Razorpay integration, decisions and safety controls are implemented. |
+| What was hardest? | Making the evaluation honest. Several early bugs made the results look better than they really were. |
